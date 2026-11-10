@@ -142,10 +142,14 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
         end = (pd.Timestamp(now.date()) - pd.offsets.BDay(1)).date() if mstatus != "tutup" else now.date()
         panel, idx_err = idxsrc.demo_panel(dcfg0["history_days"], 150, end=end), []
     else:
-        panel, idx_err = idxsrc.IdxClient(cache).history(dcfg0["history_days"])
+        client = idxsrc.IdxClient(cache)
+        panel, idx_err = client.history(dcfg0["history_days"])
+        if panel.empty and client.last_error:
+            idx_err = [f"{e} ({client.last_error})" for e in idx_err[:1]]
     source = "BEI (idx.co.id)"
     if panel.empty:
-        errors.append("Data BEI tidak dapat diunduh; Daftar Pagi memakai watchlist dari Yahoo tanpa data asing.")
+        errors.append("Data BEI tidak dapat diunduh" + (f" [{idx_err[0]}]" if idx_err else "")
+                      + "; Daftar Pagi memakai watchlist dari Yahoo tanpa data asing.")
         panel, no_foreign, source = yahoo_panel(data), True, "Yahoo Finance (watchlist, tanpa data asing)"
     elif idx_err:
         errors.append(f"Sebagian tanggal BEI gagal diunduh: {', '.join(idx_err[:5])}")

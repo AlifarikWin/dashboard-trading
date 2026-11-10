@@ -35,6 +35,7 @@ class IdxClient:
         self.cache = Path(cache_dir)
         self.cache.mkdir(parents=True, exist_ok=True)
         self._session = None
+        self.last_error = ""
 
     def _sess(self):
         if self._session is None:
@@ -52,9 +53,11 @@ class IdxClient:
         try:
             r = self._sess().get(SUMMARY_URL.format(d=f"{d:%Y%m%d}"), headers=HEADERS, timeout=30)
             if r.status_code != 200:
+                self.last_error = f"HTTP {r.status_code}"
                 return None
             rows = r.json().get("data") or []
-        except Exception:
+        except Exception as e:
+            self.last_error = f"{type(e).__name__}: {str(e)[:120]}"
             self._session = None
             return None
         rows = [{v: x.get(k) for k, v in FIELDS.items()} for x in rows]
