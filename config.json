@@ -1,0 +1,103 @@
+{
+  "watchlist": [
+    "BBCA",
+    "BBRI",
+    "BMRI",
+    "BBNI",
+    "BRIS",
+    "TLKM",
+    "ISAT",
+    "EXCL",
+    "TOWR",
+    "ASII",
+    "UNTR",
+    "AKRA",
+    "ANTM",
+    "INCO",
+    "MDKA",
+    "PTBA",
+    "ITMG",
+    "ADRO",
+    "MEDC",
+    "PGAS",
+    "BRPT",
+    "ICBP",
+    "INDF",
+    "UNVR",
+    "KLBF",
+    "AMRT",
+    "CPIN",
+    "SMGR",
+    "JSMR",
+    "GOTO"
+  ],
+  "strategy": {
+    "breakout_lookback": 20,
+    "support_lookback": 10,
+    "volume_ma": 20,
+    "fast_ma": 20,
+    "trend_ma": 50,
+    "atr_period": 14,
+    "min_price": 150,
+    "min_value_idr": 5000000000,
+    "breakout_rvol_min": 1.5,
+    "breakdown_rvol_min": 1.0,
+    "near_resistance_pct": 3.0,
+    "max_extension_pct": 4.0,
+    "sl_atr_mult": 1.5,
+    "max_sl_pct": 8.0,
+    "tp_r": 2.0,
+    "tp2_r": 3.0,
+    "limit_slippage_ticks": 2
+  },
+  "risk": {
+    "capital_idr": 10000000,
+    "risk_per_trade_pct": 1.0,
+    "max_position_pct": 25.0,
+    "fee_buy_pct": 0.15,
+    "fee_sell_pct": 0.25
+  },
+  "backtest": {
+    "period": "2y",
+    "max_hold_days": 10
+  },
+  "server": {
+    "refresh_seconds_open": 60,
+    "refresh_seconds_closed": 900
+  },
+  "session": {
+    "mon_thu": [
+      [
+        "09:00",
+        "12:00"
+      ],
+      [
+        "13:30",
+        "15:50"
+      ]
+    ],
+    "fri": [
+      [
+        "09:00",
+        "11:30"
+      ],
+      [
+        "14:00",
+        "15:50"
+      ]
+    ]
+  },
+  "daytrade": {
+    "history_days": 120,
+    "min_price": 150,
+    "min_value_idr": 10000000000,
+    "max_change_pct": 15.0,
+    "min_score": 60,
+    "top_n": 5,
+    "tp_pct": 3.0,
+    "sl_pct": 2.0,
+    "limit_ticks": 2,
+    "exclude_remarks": [],
+    "auto_tune": true
+  }
+}
