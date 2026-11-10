@@ -67,6 +67,8 @@ def score_rows(f: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     f["score"] = (10 * s["asing_hari_ini"] + 15 * s["asing_beruntun"] + 10 * s["asing_5hari"]
                   + 15 * s["tutup_kuat"] + 10 * s["naik_wajar"] + 15 * s["volume_naik"]
                   + 15 * s["tren"] + 10 * s["akumulasi"])
+    if c.get("no_foreign"):  # tanpa data asing: skala ulang dari maksimum 65 poin ke 100
+        f["score"] = (f["score"] / 65 * 100).round()
     excl = f["remarks"].apply(lambda r: any(x and x in r for x in c["exclude_remarks"]))
     f["eligible"] = ((f["close"] >= c["min_price"]) & (f["val_ma20"] >= c["min_value_idr"])
                      & (f["chg_pct"] < c["max_change_pct"]) & s["tren"] & ~excl)

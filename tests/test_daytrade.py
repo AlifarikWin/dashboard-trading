@@ -103,3 +103,17 @@ def test_optimize_applies_only_when_out_of_sample_positive(monkeypatch):
                           "net_pct": (0.5 if day_to is not None else -0.3)}] * 20)
     o = dt.optimize(panel, CFG, 0.4)
     assert not o["applied"] and o["status"] == "tidak_layak"  # bagus di latih, rugi di uji -> ditolak
+
+
+def test_static_build_demo(tmp_path, monkeypatch):
+    import build
+    monkeypatch.setenv("IDX_CACHE", str(tmp_path / "cache" / "idx"))
+    meta = build.build_all(tmp_path / "site", heavy=False, demo=True)
+    d = tmp_path / "site" / "data"
+    for name in ("meta", "signals", "check", "daytrade", "backtest"):
+        assert (d / f"{name}.json").exists(), name
+    dtj = json.loads((d / "daytrade.json").read_text())
+    assert dtj["picks"] is not None and "dt_backtest" in dtj and dtj["tuning"]["status"] in ("layak", "tidak_layak", "data_kurang")
+    chk = json.loads((d / "check.json").read_text())
+    assert "atr" in next(iter(chk["stocks"].values()))["levels"]
+    assert isinstance(meta["errors"], list)

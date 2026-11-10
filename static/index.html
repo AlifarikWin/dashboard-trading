@@ -93,6 +93,8 @@
   .linkcard{text-align:left;color:var(--text);font:inherit;cursor:pointer;display:flex;flex-direction:column;gap:3px}
   details summary{list-style:none} details summary::-webkit-details-marker{display:none}
   details summary::after{content:" ▾";color:var(--mute)}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:20;display:flex;align-items:center;justify-content:center;padding:10px}
+  .modalbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;width:min(1000px,100%)}
   .live{font-size:12px;padding:3px 8px;border-radius:6px;background:var(--panel2);display:inline-block;margin-top:6px}
 </style>
 </head>
@@ -198,7 +200,7 @@
       <div><button class="btn" type="submit">Periksa</button></div>
       <datalist id="tickers"></datalist>
     </form>
-    <p class="muted" id="checkHint">Gunakan <b>sebelum membeli</b> untuk mengecek apakah saham memenuhi aturan masuk. Isi harga beli jika Anda <b>sudah memegang</b> saham itu untuk melihat kondisi posisi dan batas <i>cut loss</i>-nya.</p>
+    <p class="muted" id="checkHint">Gunakan <b>sebelum membeli</b> untuk mengecek apakah saham memenuhi aturan masuk. Isi harga beli jika Anda <b>sudah memegang</b> saham itu untuk melihat kondisi posisi dan batas <i>cut loss</i>-nya. Saham yang bisa diperiksa: watchlist dan saham di Daftar Pagi.</p>
     <div id="checkOut"></div>
   </section>
 
@@ -265,6 +267,15 @@
   </section>
 </div>
 <div id="toast" class="toast hide"></div>
+<div id="chartModal" class="modal hide">
+  <div class="modalbox">
+    <div class="row" style="margin-bottom:8px"><b id="chartTitle">Chart</b>
+      <a id="chartLink" class="linkish" target="_blank" rel="noopener" style="margin-left:auto">Buka di TradingView ↗</a>
+      <button class="btn small ghost" id="chartClose" style="margin-left:10px">Tutup</button></div>
+    <div id="chartBox" style="height:70vh"></div>
+    <p class="muted" style="margin:6px 0 0;font-size:12px">Chart dan datanya dari TradingView, dan dapat tertunda. Jika chart kosong, gunakan tautan "Buka di TradingView".</p>
+  </div>
+</div>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -354,14 +365,19 @@ $("#alertBtn").onclick = async () => {
 };
 
 // ---------- data ----------
+let META = null, CHECK = null;
+async function getJSON(path) {
+  const r = await fetch(path + "?t=" + Date.now(), {cache: "no-store"});
+  if (!r.ok) throw new Error(`${path}: ${r.status}`);
+  return r.json();
+}
 async function load() {
   try {
-    const r = await fetch("api/signals", {cache: "no-store"});
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || r.statusText);
+    const [j, m] = await Promise.all([getJSON("data/signals.json"), getJSON("data/meta.json")]);
     const first = !DATA;
-    DATA = j; if (first) fillSettings();
-    renderAll(); detectChanges(); schedule(j.refresh_seconds);
+    DATA = j; META = m; if (first) fillSettings();
+    renderAll(); detectChanges();
+    schedule(m.market.status === "buka" || m.market.status === "istirahat" ? 180 : 900);
   } catch (e) {
     $("#banners").innerHTML = `<div class="banner err">Gagal memuat data: ${esc(e.message)}. Mencoba lagi…</div>`;
     schedule(30);
@@ -397,10 +413,14 @@ function renderAll() {
   const d = DATA, m = $("#market");
   m.textContent = "Bursa: " + d.market.status + (d.market.status === "buka" ? ` · ${Math.round(d.market.progress * 100)}%` : "");
   m.className = "pill" + (d.market.status === "buka" ? " open" : "");
-  $("#updated").textContent = "Dipindai " + d.generated_at.slice(11, 16) + " WIB";
+  $("#updated").textContent = "Data per " + d.generated_at.slice(11, 16) + " WIB";
   let b = "";
   if (d.demo) b += `<div class="banner warn">MODE DEMO: data sintetis, bukan harga pasar.</div>`;
-  if (d.server_error) b += `<div class="banner err">Pembaruan terakhir gagal (${esc(d.server_error)}). Data ${Math.round(d.age_seconds / 60)} menit lalu.</div>`;
+  if (META) {
+    const age = Math.round((Date.now() - Date.parse(META.generated_at.replace(" WIB", "+07:00").replace(" ", "T"))) / 60000);
+    if (age > 40 && META.market.status === "buka") b += `<div class="banner warn">Data terakhir diperbarui ${age} menit lalu. Jadwal GitHub Actions kadang terlambat.</div>`;
+    (META.errors || []).forEach(e => b += `<div class="banner warn">${esc(e)}</div>`);
+  }
   if (d.missing.length) b += `<div class="banner warn">Data tidak tersedia: ${d.missing.join(", ")}</div>`;
   $("#banners").innerHTML = b;
   $("#tickers").innerHTML = d.watchlist.map(t => `<option value="${t}">`).join("");
@@ -458,6 +478,7 @@ function renderRadar() {
       <div class="bar"><i style="width:${x.score}%"></i></div>
       <ul class="checks">${x.checks.map(c => `<li class="${c.ok ? (c.partial ? "p" : "y") : "n"}">${esc(c.label)}</li>`).join("")}</ul>
       ${x.plan ? stockbitBox(x.plan, "radar") : x.kandidat ? `<p class="muted">Jarak stop loss terlalu lebar, jadi tidak ada rencana order.</p>` : ""}
+      <div class="actions"><button class="btn small ghost" data-chart="${x.ticker}">📈 Chart</button></div>
       ${DATA.regime.level === "bad" && x.kandidat ? `<p class="down" style="font-size:13px;margin:8px 0 0">IHSG sedang TURUN: peluang breakout gagal lebih tinggi.</p>` : ""}
     </div>`).join("") : `<div class="empty">Belum ada kandidat radar. Hari tanpa peluang bagus adalah hari untuk tidak trading.</div>`;
 }
@@ -477,7 +498,8 @@ function renderSignals() {
       ${s.reasons.length ? `<ul class="why">${s.reasons.map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
       <div class="stats"><span>Res ${fmt(s.res)}</span><span>Sup ${fmt(s.sup)}</span><span>RVOL ${fmt1(s.rvol, 2)}×</span><span>MA50 ${fmt(s.ma_trend)}</span></div>
       <div class="stats"><span>harga per ${esc(s.as_of)}</span></div>
-      ${s.plan ? stockbitBox(s.plan) + `<div class="actions"><button class="btn small ghost" data-take="${s.ticker}">+ Catat sebagai posisi</button></div>` : ""}
+      ${s.plan ? stockbitBox(s.plan) : ""}
+      <div class="actions"><button class="btn small ghost" data-chart="${s.ticker}">📈 Chart</button>${s.plan ? `<button class="btn small ghost" data-take="${s.ticker}">+ Catat sebagai posisi</button>` : ""}</div>
     </div>`).join("") : `<div class="empty">Tidak ada saham pada filter ini.</div>`;
   $$("[data-take]").forEach(x => x.onclick = () => takePosition(x.dataset.take));
 }
@@ -488,13 +510,34 @@ $("#checkForm").onsubmit = async e => {
   e.preventDefault();
   const t = $("#cTicker").value.trim().toUpperCase(), avg = $("#cAvg").value, lots = $("#cLots").value;
   $("#checkOut").innerHTML = `<p class="muted">Memeriksa ${esc(t)}…</p>`;
-  const qs = new URLSearchParams({ticker: t}); if (avg) qs.set("avg", avg); if (lots) qs.set("lots", lots);
   try {
-    const r = await fetch("api/check?" + qs, {cache: "no-store"}); const j = await r.json();
-    if (!r.ok) throw new Error(j.detail || r.statusText);
+    if (!CHECK) CHECK = await getJSON("data/check.json");
+    const base = CHECK.stocks[t];
+    if (!base) throw new Error(`${t} belum tersedia. Versi tanpa server hanya bisa memeriksa saham watchlist dan saham di Daftar Pagi: ${Object.keys(CHECK.stocks).sort().join(", ")}.`);
+    const j = JSON.parse(JSON.stringify(base));
+    if (avg) j.position = positionDoctor(j, +avg, +(lots || 1));
     renderCheck(j);
   } catch (err) { $("#checkOut").innerHTML = `<div class="banner err">${esc(err.message)}</div>`; }
 };
+function tickOf(p) { return p < 200 ? 1 : p < 500 ? 2 : p < 2000 ? 5 : p < 5000 ? 10 : 25; }
+function roundDown(p) { const t = tickOf(p); let r = Math.floor(p / t) * t; const t2 = tickOf(r); return t2 !== t ? Math.floor(r / t2) * t2 : r; }
+function positionDoctor(j, avg, lots) {
+  const s = settings(), fee = (s.feeB + s.feeS) / 100, L = j.levels, price = j.price;
+  const cands = [L.sup20, L.sup10, L.ma50].filter(x => x && x < price);
+  let cl;
+  if (cands.length) { const m = Math.max(...cands); cl = roundDown(m - tickOf(m)); } else cl = roundDown(price - 1.5 * (L.atr || price * 0.03));
+  const broken = price < L.ma50 && L.sup20 && price < L.sup20;
+  const weak = price < L.ma50 || j.signal.signal === "SELL";
+  const fmtp = x => fmt(x);
+  let status, note;
+  if (broken) { status = "TREN RUSAK"; note = "Harga di bawah MA50 dan sudah jebol low 20 hari. Menurut aturan dashboard, kondisi ini adalah kondisi keluar, bukan average down."; }
+  else if (weak) { status = "MELEMAH"; note = `Tren melemah. Tetapkan batas cut loss di ${fmtp(cl)} sekarang dan patuhi; jangan menambah lot sampai tren pulih.`; }
+  else { status = "MASIH SEHAT"; note = `Struktur tren masih utuh. Batas cut loss logis di ${fmtp(cl)} (di bawah support terdekat).`; }
+  return {avg, lots, status, note,
+    pl_pct: (price / avg - 1 - fee) * 100, pl_idr: Math.round((price * (1 - fee) - avg) * lots * 100),
+    cut_loss: cl, loss_at_cl_pct: (cl / avg - 1 - fee) * 100, loss_at_cl_idr: Math.round((cl * (1 - fee) - avg) * lots * 100),
+    need_to_breakeven_pct: price < avg ? (avg / price / (1 - fee) - 1) * 100 : 0};
+}
 function renderCheck(j) {
   const en = j.entry, br = brake();
   let verdict = en.verdict;
@@ -525,6 +568,7 @@ function renderCheck(j) {
       <span class="px">${fmt(j.price)}</span><span class="chg ${cls(j.change_pct)}">${sign(j.change_pct)}${fmt1(j.change_pct, 2)}%</span></div>
     <ul class="checks">${en.checks.map(c => `<li class="${c.ok ? "y" : c.warn ? "p" : "n"}">${esc(c.label)}</li>`).join("")}
       ${br.stop ? `<li class="n">Rem kerugian mingguan aktif</li>` : ""}</ul>
+    <div class="actions"><button class="btn small ghost" data-chart="${j.ticker}">📈 Chart ${j.ticker}</button></div>
     <div class="stats"><span>Sinyal: ${j.signal.signal}</span><span>Radar: ${j.radar.score}</span><span>MA20 ${fmt(j.levels.ma20)}</span><span>MA50 ${fmt(j.levels.ma50)}</span><span>Sup20 ${fmt(j.levels.sup20)}</span><span>Res20 ${fmt(j.levels.res20)}</span></div>
     ${verdict === "TUNGGU BREAKOUT" && j.radar.plan ? `<p class="muted" style="margin:8px 0 0">Pola akumulasi terdeteksi, tetapi belum tembus. Pasang Auto Buy di harga <i>trigger</i>:</p>` + stockbitBox(j.radar.plan, "radar")
       : lvl === "ok" && en.plan ? stockbitBox(en.plan) : ""}
@@ -647,15 +691,11 @@ function renderJournal() {
 }
 
 // ---------- backtest ----------
-$("#btRun").onclick = async () => {
-  $("#btRun").disabled = true; $("#btOut").innerHTML = `<p class="muted">Mengunduh data historis dan menghitung… (±1–2 menit)</p>`;
-  await fetch("api/backtest", {method: "POST"}); pollBt();
-};
+$("#btRun").onclick = () => pollBt();
 async function pollBt() {
-  const j = await (await fetch("api/backtest", {cache: "no-store"})).json();
-  if (j.running) return setTimeout(pollBt, 3000);
-  $("#btRun").disabled = false;
-  const r = j.result; if (!r) return;
+  let r;
+  try { r = await getJSON("data/backtest.json"); } catch (e) { $("#btOut").innerHTML = `<div class="banner err">${esc(e.message)}</div>`; return; }
+  if (r.pending) { $("#btOut").innerHTML = `<p class="muted">Backtest swing dihitung sekali sehari (pukul 17.30 WIB). Belum tersedia.</p>`; return; }
   if (r.error) { $("#btOut").innerHTML = `<div class="banner err">${esc(r.error)}</div>`; return; }
   const m = r.summary, rv = r.radar || {};
   let html = `<p class="muted">${r.tickers} saham · ${r.period} · dihitung ${r.generated_at}</p>`;
@@ -678,7 +718,7 @@ async function pollBt() {
     </table></div>`;
   $("#btOut").innerHTML = html;
 }
-fetch("api/backtest").then(r => r.json()).then(j => { if (j.result || j.running) pollBt(); }).catch(() => {});
+
 
 
 // ---------- daftar pagi day trade ----------
@@ -686,12 +726,16 @@ let DT = null, dtTimer = null;
 async function loadDT() {
   const s = settings();
   try {
-    const r = await fetch(`api/daytrade?capital=${s.cap}&risk=${s.risk}`, {cache: "no-store"});
-    DT = await r.json();
+    DT = await getJSON("data/daytrade.json");
   } catch (e) { DT = {error: e.message}; }
   renderDT();
   clearTimeout(dtTimer);
-  dtTimer = setTimeout(loadDT, DT && DT.loading ? 5000 : 60000);
+  dtTimer = setTimeout(loadDT, 180000);
+}
+function dtBaseLots(p) {
+  const s = settings(), per = (p.limit - p.sl) + p.limit * (s.feeB + s.feeS) / 100;
+  if (per <= 0) return 0;
+  return Math.max(0, Math.min(Math.floor(s.cap * s.risk / 100 / per / 100), Math.floor(s.cap * 0.5 / (p.limit * 100))));
 }
 function dtLots(p) {
   if (brake().stop) return [0, "rem rugi aktif"];
@@ -699,7 +743,7 @@ function dtLots(p) {
   if (tu && tu.status === "tidak_layak") return [0, "uji historis negatif"];
   const reg = (DT && DT.regime) || (DATA && DATA.regime);
   if (reg && reg.level === "bad") return [0, "IHSG turun"];
-  let lots = p.lots, why = [];
+  let lots = dtBaseLots(p), why = [];
   if (reg && reg.level === "warn") { lots = Math.floor(lots / 2); why.push("IHSG waspada"); }
   if (tu && tu.status === "data_kurang") { lots = Math.floor(lots / 2); why.push("belum teruji cukup"); }
   return [lots, why.length ? "dipotong: " + why.join(", ") : ""];
@@ -725,7 +769,7 @@ function renderDT() {
   const when = d.for_today ? "untuk HARI INI" : "untuk hari bursa BERIKUTNYA";
   const reg = d.regime || (DATA && DATA.regime);
   $("#dtHead").innerHTML = `<h2>Daftar Pagi Day Trade — ${when}</h2>
-    <p class="muted" style="margin:0">Data penutupan BEI ${d.date} · ${fmt(d.scanned)} saham dipindai · ${fmt(d.eligible)} lolos filter likuiditas & tren · skor min. ${d.params.min_score}</p>
+    <p class="muted" style="margin:0">Sumber: ${esc(d.source || "BEI")} · data penutupan ${d.date} · ${fmt(d.scanned)} saham dipindai · ${fmt(d.eligible)} lolos filter likuiditas & tren · skor min. ${d.params.min_score}</p>
     ${tuneHtml(d)}
     ${d.demo ? `<div class="banner warn" style="margin:8px 0 0">MODE DEMO: data sintetis.</div>` : ""}
     ${d.error ? `<div class="banner warn" style="margin:8px 0 0">${esc(d.error)}</div>` : ""}`;
@@ -756,7 +800,7 @@ function renderDT() {
         <div><span class="k">Tutup paling lambat</span><span class="v">15.45</span></div>
       </div>
       <div class="sb">Stockbit → <b>Buy · Limit Order · Auto Buy</b>: Trigger harga ≥ <b>${fmt(p.trigger)}</b>, Buy Price <b>${fmt(p.limit)}</b>, Lot <b>${lots}</b>. Setelah terisi: Auto Order → <b>Stop Loss ${fmt(p.sl)}</b> dan <b>Take Profit ${fmt(p.tp)}</b>.</div>
-      <div class="actions"><button class="btn small ghost" data-dt="${x.code}">+ Catat sebagai posisi (sudah terbeli)</button></div>
+      <div class="actions"><button class="btn small" data-chart="${x.code}">📈 Chart</button><button class="btn small ghost" data-dt="${x.code}">+ Catat sebagai posisi (sudah terbeli)</button></div>
     </div>`;
   }).join("");
   $$("[data-dt]").forEach(b => b.onclick = () => {
@@ -768,7 +812,7 @@ function renderDT() {
 }
 $("#dtBtRun").onclick = async () => {
   $("#dtBtOut").innerHTML = `<p class="muted">Menghitung…</p>`;
-  const r = await (await fetch("api/daytrade/backtest", {cache: "no-store"})).json();
+  const r = (DT && DT.dt_backtest) || {error: "data belum tersedia"};
   if (r.error) { $("#dtBtOut").innerHTML = `<div class="banner err">${esc(r.error)}</div>`; return; }
   if (!r.trades) { $("#dtBtOut").innerHTML = `<p class="muted">Belum ada transaksi uji pada ${r.days} hari data.</p>`; return; }
   const good = r.avg_pct > 0;
@@ -794,6 +838,23 @@ setInterval(() => {
     notify(`Pukul ${now.getHours()}.${String(now.getMinutes()).padStart(2, "0")}: tutup ${getPos().length} posisi day trade sebelum 15.45 (${getPos().map(p => p.ticker).join(", ")}).`, true);
   }
 }, 30000);
+
+function openChart(code) {
+  const sym = "IDX:" + code;
+  $("#chartTitle").textContent = code + " — TradingView";
+  $("#chartLink").href = "https://www.tradingview.com/chart/?symbol=" + encodeURIComponent(sym);
+  const box = $("#chartBox");
+  box.innerHTML = '<div class="tradingview-widget-container" style="height:100%;width:100%"><div class="tradingview-widget-container__widget" style="height:100%;width:100%"></div></div>';
+  const sc = document.createElement("script");
+  sc.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+  sc.async = true;
+  sc.innerHTML = JSON.stringify({autosize: true, symbol: sym, interval: "D", timezone: "Asia/Jakarta", theme: "dark",
+    style: "1", locale: "id", allow_symbol_change: true, studies: ["Volume@tv-basicstudies"], support_host: "https://www.tradingview.com"});
+  box.firstChild.appendChild(sc);
+  $("#chartModal").classList.remove("hide");
+}
+$("#chartClose").onclick = () => { $("#chartModal").classList.add("hide"); $("#chartBox").innerHTML = ""; };
+document.addEventListener("click", e => { const b = e.target.closest("[data-chart]"); if (b) openChart(b.dataset.chart); });
 
 paintAlertBtn();
 load();

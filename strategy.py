@@ -423,7 +423,8 @@ def check_stock(ticker: str, df: pd.DataFrame, s: dict, risk: dict, regime: dict
 
     out = {"ticker": ticker, "price": price, "change_pct": ev["change_pct"], "signal": ev, "radar": rd,
            "levels": {"ma20": round(ma_fast), "ma50": round(ma_trend), "sup10": ev["sup"],
-                      "sup20": round_tick(sup20) if not pd.isna(sup20) else None, "res20": ev["res"]},
+                      "sup20": round_tick(sup20) if not pd.isna(sup20) else None, "res20": ev["res"],
+                      "atr": round(float(row["atr"]), 2)},
            "entry": {"verdict": verdict, "checks": checks,
                      "plan": asdict(entry_plan) if entry_plan else None},
            "position": None}

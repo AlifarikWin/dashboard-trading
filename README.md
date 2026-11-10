@@ -1,6 +1,6 @@
 # Dashboard Trading BEI
 
-*Dashboard* web untuk dua masalah utama trader ritel: **masuk di waktu yang salah** dan **rugi yang dibiarkan membesar**. Dirancang untuk HP dan alur *auto order* Stockbit.
+*Dashboard* web untuk dua masalah utama trader ritel: **masuk di waktu yang salah** dan **rugi yang dibiarkan membesar**. Dirancang untuk HP dan alur *auto order* Stockbit. Setiap kartu saham punya tombol **📈 Chart** yang membuka *chart* TradingView.
 
 > Tidak ada indikator yang bisa memastikan saham akan naik. Informasi "sebelum naik" dari orang dalam adalah *insider trading* dan ilegal. *Dashboard* ini menyaring peluang yang lebih baik secara statistik dan membatasi rugi. Ini bukan rekomendasi investasi.
 
@@ -73,23 +73,29 @@ Saham menjadi kandidat jika skornya ≥ 60, trennya naik, belum menembus *resist
 - **Rem kerugian:** jika rugi minggu ini (dari Jurnal) mencapai batas, bawaannya 3% modal, semua saran lot menjadi 0 sampai Senin berikutnya.
 - **Ukuran posisi:** lot dihitung agar rugi saat kena SL ≈ risiko per transaksi (bawaan 1% modal), dan satu posisi maksimal 25% modal.
 
-## Menjalankan
+## Cara kerja hosting (gratis, tanpa kartu)
 
+*Dashboard* berjalan sebagai **situs statis di GitHub Pages**. Semua perhitungan dikerjakan **GitHub Actions** (`.github/workflows/dashboard.yml`) sesuai jadwal:
+
+| Waktu (WIB) | Isi pembaruan |
+|---|---|
+| 06.30, Senin–Jumat | Daftar Pagi siap sebelum bursa buka |
+| Tiap 15 menit, 09.00–15.45 | Harga, sinyal, radar, dan status saham Daftar Pagi (terpicu / TP / SL) |
+| 17.30, Senin–Jumat | Data penutupan BEI, penyetelan otomatis, dan backtest swing |
+
+Setiap *push* ke `main` dan tombol **Run workflow** di tab Actions juga memicu pembaruan.
+
+Catatan hosting:
+- Jadwal GitHub Actions bisa terlambat beberapa menit. *Dashboard* menampilkan peringatan jika data lebih dari 40 menit belum diperbarui saat bursa buka.
+- GitHub Pages gratis hanya untuk repositori publik, jadi situs ini **tanpa password**. Posisi, jurnal, dan pengaturan tetap tersimpan di *browser* Anda sendiri, tidak di situs.
+- Cek Saham hanya untuk saham *watchlist* dan saham di Daftar Pagi, karena tidak ada server yang bisa dipanggil sewaktu-waktu.
+- GitHub bisa menonaktifkan jadwal Actions pada repositori yang tidak ada aktivitasnya selama 60 hari. Jika itu terjadi, aktifkan lagi dari tab Actions.
+
+### Menjalankan di komputer sendiri (opsional)
 ```bash
 pip install -r requirements.txt
-DEMO=1 uvicorn app:app --port 8000     # mode demo, data sintetis
-uvicorn app:app --port 8000            # data asli (Yahoo Finance)
-```
-
-**Online di Render (gratis):**
-1. Unggah folder ini ke repositori GitHub privat.
-2. Di render.com, pilih New → Blueprint, lalu pilih repositori tadi.
-3. Isi `DASHBOARD_PASSWORD`.
-4. Buka URL-nya di HP, lalu pilih *Add to Home Screen*.
-
-Paket gratis Render tertidur jika lama tidak dikunjungi. Untuk *server* yang selalu menyala, gunakan VPS dengan `Dockerfile` yang sudah disediakan:
-```bash
-docker build -t dashboard-saham . && docker run -d -p 8000:8000 -e DASHBOARD_PASSWORD=ganti_ini --restart unless-stopped dashboard-saham
+DEMO=1 python build.py --out site --heavy && python -m http.server -d site 8000   # versi statis, data demo
+uvicorn app:app --port 8000                                                       # server lokal, diperbarui otomatis
 ```
 
 ## Pengaturan
