@@ -147,9 +147,9 @@ Notifikasi dikirim saat Daftar Pagi siap, saat saham Daftar Pagi terpicu/kena TP
 
 ### Data BEI lewat laptop (self-hosted runner)
 Situs BEI menolak *server* GitHub, jadi data resmi BEI (ringkasan harian, asing, notasi, suspensi, kalender, keterbukaan informasi) diambil dari laptop Anda, lalu disimpan ke *branch* `records`.
-1. Pasang **Python 3.12** dan **Git** di laptop.
-2. Di GitHub: *Settings → Actions → Runners → New self-hosted runner*. Pilih OS laptop, lalu jalankan perintah yang ditampilkan (unduh, `config`, lalu `run`).
-3. Agar berjalan otomatis setelah laptop menyala, pasang sebagai *service*: Windows: jawab **Y** saat `config.cmd` menanyakan *run as service*; Linux/macOS: `sudo ./svc.sh install && sudo ./svc.sh start`.
+1. Pasang **Git for Windows** (opsi bawaan) dan **Python 3.12** dari python.org. Pada pemasang Python, centang *Add python.exe to PATH*, pilih *Customize installation*, lalu centang **Install Python for all users**.
+2. Di GitHub: *Settings → Actions → Runners → New self-hosted runner* → pilih **Windows**. Buka **PowerShell sebagai Administrator**, lalu jalankan perintah yang ditampilkan satu per satu (bagian *Download* lalu *Configure*). Simpan runner di `C:\actions-runner`.
+3. Saat `config.cmd` bertanya, tekan Enter untuk semua pertanyaan, kecuali *Would you like to run the runner as service?* yang dijawab **Y**. Akun *service* biarkan bawaan (`NT AUTHORITY\NETWORK SERVICE`). Runner akan menyala sendiri setiap laptop hidup.
 4. Uji sekali: tab *Actions → data-bei-laptop → Run workflow*.
 
 Jadwalnya 17.52 WIB Senin–Jumat. Jika laptop mati pada jam itu, *job* menunggu dan berjalan begitu laptop menyala (maksimal 24 jam). Setelah data masuk, *workflow* `dashboard` dipicu otomatis.

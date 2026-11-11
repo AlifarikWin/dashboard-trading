@@ -19,29 +19,50 @@ jobs:
   fetch:
     runs-on: self-hosted
     timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash   # Windows: memakai Git Bash (terpasang bersama Git for Windows)
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: utf-8
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - run: python -m pip install -r requirements.txt
+      # Python dari laptop (bukan setup-python) dipasang ke virtualenv di folder runner,
+      # sehingga tetap berjalan walau runner dipasang sebagai service Windows.
+      - name: Siapkan Python
+        run: |
+          TC=$(cygpath -u "$RUNNER_TOOL_CACHE" 2>/dev/null || echo "$RUNNER_TOOL_CACHE")
+          VENV="$TC/dashboard-venv"
+          if [ "$RUNNER_OS" = "Windows" ]; then PYBIN="$VENV/Scripts/python.exe"; else PYBIN="$VENV/bin/python"; fi
+          if [ ! -x "$PYBIN" ]; then
+            BASE=""
+            # "py" dulu: di Windows, "python3" bisa berupa pintasan Microsoft Store yang bukan Python sungguhan
+            for c in py python python3; do
+              if command -v "$c" >/dev/null 2>&1 && "$c" -c "import sys; sys.exit(sys.version_info < (3, 10))" >/dev/null 2>&1; then BASE="$c"; break; fi
+            done
+            if [ -z "$BASE" ]; then echo "::error::Python 3.10+ tidak ditemukan. Pasang Python untuk semua pengguna (All users) dan centang Add to PATH."; exit 1; fi
+            "$BASE" -m venv "$VENV"
+          fi
+          "$PYBIN" -m pip install -q --upgrade pip
+          "$PYBIN" -m pip install -q -r requirements.txt
+          echo "PY=$PYBIN" >> "$GITHUB_ENV"
+          "$PYBIN" --version
 
       - name: Ambil penyimpanan permanen
-        run: python store.py pull store
+        run: '"$PY" store.py pull store'
 
       - name: Unduh data resmi BEI
-        run: python fetch_bei.py --store store
+        run: '"$PY" fetch_bei.py --store store'
 
       - name: Simpan ke penyimpanan permanen
         if: always()
-        run: python store.py push store "data BEI dari laptop"
+        run: '"$PY" store.py push store "data BEI dari laptop"'
 
       - name: Perbarui dashboard
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python fetch_bei.py --dispatch
+        run: '"$PY" fetch_bei.py --dispatch'
 
   kabari-jika-gagal:
     needs: fetch

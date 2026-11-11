@@ -29,7 +29,7 @@ from data import WIB
 def save(p: Path, obj) -> None:
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps({"fetched_at": datetime.now(WIB).isoformat(timespec="minutes"), "results": obj},
-                            ensure_ascii=False))
+                            ensure_ascii=False), encoding="utf-8")
 
 
 def main() -> int:
@@ -82,7 +82,7 @@ def main() -> int:
     print("\n".join(report))
     (store / "idx").mkdir(parents=True, exist_ok=True)
     (store / "idx" / "last_run.json").write_text(json.dumps(
-        {"at": datetime.now(WIB).isoformat(timespec="minutes"), "report": report, "ok": ok_summary}, ensure_ascii=False))
+        {"at": datetime.now(WIB).isoformat(timespec="minutes"), "report": report, "ok": ok_summary}, ensure_ascii=False), encoding="utf-8")
     return 0 if ok_summary else 2
 
 
