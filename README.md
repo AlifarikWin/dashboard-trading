@@ -52,6 +52,7 @@ Pemisahan latih dan uji ini mencegah setelan yang hanya "kebetulan cocok" dengan
 Parameter day trade diatur di `config.json` bagian `daytrade`. Isi `"auto_tune": false` untuk mematikan penyetelan otomatis.
 
 ## Menu lain
+- **Gerak Hari Ini:** saham yang naik, turun, ramai volume, atau gap naik dan bertahan sejak pembukaan, untuk seluruh emiten (harga dari *screener* Yahoo, tertunda ±10–15 menit, diperbarui tiap 15 menit). Saringan bawaan: likuid dan tren harian bagus. Saham yang sudah naik ≥ 7% ditandai "jangan kejar", dan yang menyentuh ARA/ARB ditandai.
 - **Semua Saham:** seluruh emiten yang bisa disaring (tren naik, dekat level tembus, di area beli, lebih kuat dari IHSG, volume melonjak, fundamental kuat, di bawah nilai wajar, pola dividen) dan diurutkan. Saham dengan penanda risiko disembunyikan secara bawaan.
 - **Posisi Saya:** pantau saham yang dipegang, dengan status JUAL saat kena SL/TP atau muncul sinyal teknikal SELL.
 - **Cek Saham:** daftar cek sebelum membeli, untuk emiten mana pun. Jawabannya otomatis "JANGAN MASUK DULU" jika saham punya penanda risiko.

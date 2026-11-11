@@ -99,3 +99,17 @@ def test_fetch_fundamentals_rotation_limit(tmp_path):
     f.write_text(json.dumps({"A": {"_ts": 5}, "B": {"_ts": 1}}))
     # limit=0: tidak mengunduh apa pun, cache dikembalikan apa adanya (tanpa internet)
     assert an.fetch_fundamentals(["A", "B", "C"], f, limit=0) == {"A": {"_ts": 5}, "B": {"_ts": 1}}
+
+
+def test_movers_basic():
+    rows = [{"c": "AAA", "n": "A", "s": "Energi", "t": "up", "w": "up", "v": 20, "blk": False, "fl": []},
+            {"c": "BBB", "n": "B", "s": "Energi", "t": "down", "w": "down", "v": 5, "blk": True, "fl": ["tidak wajar"]}]
+    q = {"AAA": {"p": 1080, "prev": 1000, "o": 1010, "h": 1090, "l": 1005, "vol": 2e6, "avg10": 4e6, "t": None},
+         "BBB": {"p": 930, "prev": 1000, "o": 990, "h": 995, "l": 930, "vol": 1e6, "avg10": 1e6, "t": None},
+         "CCC": {"p": 100, "prev": 100, "o": 100, "h": 100, "l": 100, "vol": 0, "avg10": 1e6, "t": None}}
+    m = uni.movers(rows, q, date(2026, 11, 11), 0.5)
+    assert [x["c"] for x in m] == ["AAA", "BBB"]  # CCC belum bertransaksi
+    a, b = m
+    assert a["ch"] == 8.0 and a["gap"] == 1.0 and a["hold"] and a["tr"] == "up" and a["rv"] == 1.0
+    assert "sudah naik tinggi" in a["warn"]
+    assert b["warn"] == ["ARB"] and b["blk"] and b["tr"] == "down" and not b["hold"]

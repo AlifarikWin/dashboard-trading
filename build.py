@@ -526,6 +526,20 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
         if t in urows and len(df) > 1:
             urows[t] = {**urows[t], "p": float(df["Close"].iloc[-1]),
                         "ch": round(float(df["Close"].iloc[-1] / df["Close"].iloc[-2] - 1) * 100, 2), "d": str(df.index[-1].date())}
+    # gerak hari ini (harga terkini seluruh emiten): saat bursa buka, istirahat, dan setelah tutup
+    mv = {"market": mstatus, "updated": None, "items": [], "delay_min": None}
+    if uindex["rows"]:
+        try:
+            qs = uni.demo_quotes(uindex["rows"], int(now.timestamp() // 900)) if demo else uni.live_quotes()
+            mv["items"] = uni.movers(uindex["rows"], qs, today, progress if mstatus in ("buka", "istirahat") else 1.0)
+            mv["session"] = mv["items"][0]["d"] if mv["items"] else None
+            dl = [q.get("delay") for q in qs.values() if q.get("delay") is not None]
+            mv["delay_min"] = int(np.median(dl)) if dl else None
+            mv["updated"] = now.strftime("%H:%M")
+        except Exception as e:
+            traceback.print_exc()
+            errors.append(f"Gerak hari ini: {type(e).__name__}")
+    write(out, "movers", mv)
     write(out, "universe", {"date": uindex.get("date"), "rows": sorted(urows.values(), key=lambda r: r["c"]),
                             "watchlist": cfg["watchlist"], "state": ustate, "div": {c: [v["up"], v["n"], v["avg_run"]] for c, v in div_stats.items()}})
     fund_ok = sum(1 for t in frames if an.fundamental(funds.get(t), 1.0).get("available"))
@@ -663,7 +677,10 @@ def main() -> None:
         print(json.dumps({"universe_rows": len(rows), "analysis_files": len(files),
                           "analysis_mb": round(sum(f.stat().st_size for f in files) / 1e6, 1),
                           "blocked": sum(r["blk"] for r in rows), "flags": kinds, "with_fundamental": fund,
-                          "with_dividend_pattern": len(u.get("div", {})), "sectors": len({r["s"] for r in rows if r["s"]}),
+                          "with_dividend_pattern": len(u.get("div", {})),
+                          "movers": (lambda m: {"items": len(m["items"]), "session": m.get("session"), "delay_min": m.get("delay_min"),
+                                                "top": [(x["c"], x["ch"]) for x in m["items"][:3]]})(
+                              json.loads((out / "data" / "movers.json").read_text(encoding="utf-8"))), "sectors": len({r["s"] for r in rows if r["s"]}),
                           "sample": next((r for r in rows if r["c"] == "TLKM"), rows[0] if rows else None)},
                          ensure_ascii=False, indent=1))
     except Exception as e:

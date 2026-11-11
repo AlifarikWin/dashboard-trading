@@ -369,3 +369,74 @@ def demo_list(codes: list[str]) -> dict[str, dict]:
                   "pe": float(rng.uniform(4, 30)), "pbv": float(rng.uniform(0.5, 4)), "eps": float(rng.uniform(-20, 400)),
                   "bvps": float(rng.uniform(100, 3000)), "dyf": float(rng.uniform(0, 0.08)), "sector": SECTORS[i % len(SECTORS)]}
     return out
+
+
+# ----------------------------------------------------------------------------
+# Gerak hari ini: harga terkini seluruh emiten (4 permintaan ke screener Yahoo)
+# ----------------------------------------------------------------------------
+def live_quotes() -> dict[str, dict]:
+    from yfinance import EquityQuery
+    out = {}
+    for q in _screen(EquityQuery("eq", ["exchange", "JKT"])):
+        sym = q.get("symbol") or ""
+        if q.get("quoteType") != "EQUITY" or not sym.endswith(".JK"):
+            continue
+        out[sym[:-3]] = {"p": q.get("regularMarketPrice"), "prev": q.get("regularMarketPreviousClose"),
+                         "o": q.get("regularMarketOpen"), "h": q.get("regularMarketDayHigh"),
+                         "l": q.get("regularMarketDayLow"), "vol": q.get("regularMarketVolume"),
+                         "avg10": q.get("averageDailyVolume10Day"), "t": q.get("regularMarketTime"),
+                         "delay": q.get("exchangeDataDelayedBy")}
+    return out
+
+
+def movers(urows: list[dict], quotes: dict[str, dict], today: date, progress: float) -> list[dict]:
+    """Perubahan sejak penutupan kemarin untuk saham yang sudah bertransaksi hari ini, digabung dengan tren harian."""
+    by = {r["c"]: r for r in urows}
+    from data import WIB
+    qd = {c: datetime.fromtimestamp(q["t"], tz=WIB).date() for c, q in quotes.items() if q.get("t")}
+    session = max(qd.values(), default=today)  # sesi terakhir (hari ini, atau hari bursa sebelumnya saat pra-buka/libur)
+    out = []
+    f = max(progress, 0.1)  # hindari proyeksi volume liar di menit awal
+    for c, q in quotes.items():
+        p, prev, o, h, l, vol = (q.get(k) for k in ("p", "prev", "o", "h", "l", "vol"))
+        if not p or not prev or not vol or prev <= 0:
+            continue
+        if c in qd and qd[c] != session:
+            continue  # belum bertransaksi di sesi ini
+        r = by.get(c) or {}
+        lim = rk.ar_limits(float(prev), session)
+        warn = []
+        ch = (p / prev - 1) * 100
+        if p >= lim["ara"]:
+            warn.append("ARA")
+        elif ch >= 7:
+            warn.append("sudah naik tinggi")
+        if p <= lim["arb"]:
+            warn.append("ARB")
+        rng = (h - l) if h and l and h > l else None
+        out.append({
+            "c": c, "n": r.get("n") or c, "s": r.get("s", ""),
+            "p": float(p), "ch": round(ch, 2),
+            "gap": round((o / prev - 1) * 100, 2) if o else None,
+            "hold": bool(o and p >= o),                                   # bertahan di atas harga pembukaan
+            "nh": round((h - p) / rng, 2) if rng else None,              # 0 = di harga tertinggi hari ini
+            "rv": round(vol / (q["avg10"] * f), 2) if q.get("avg10") else None,
+            "val": round(p * vol / 1e9, 2),                              # nilai transaksi hari ini, miliar Rp
+            "tr": "up" if r.get("t") == "up" and r.get("w") != "down" else "down" if r.get("t") == "down" else "side",
+            "v20": r.get("v"), "blk": bool(r.get("blk")), "fl": r.get("fl", []), "warn": warn,
+            "d": str(session),
+        })
+    out.sort(key=lambda x: -x["ch"])
+    return out
+
+
+def demo_quotes(urows: list[dict], seed: int) -> dict[str, dict]:
+    rng = np.random.default_rng(seed)
+    out = {}
+    for r in urows:
+        prev = r["p"]
+        o = prev * (1 + rng.normal(0, 0.01))
+        p = o * (1 + rng.normal(0.002, 0.02))
+        out[r["c"]] = {"p": p, "prev": prev, "o": o, "h": max(o, p) * 1.005, "l": min(o, p) * 0.995,
+                       "vol": float(rng.uniform(1e5, 5e7)), "avg10": float(rng.uniform(1e6, 4e7)), "t": None, "delay": 10}
+    return out
