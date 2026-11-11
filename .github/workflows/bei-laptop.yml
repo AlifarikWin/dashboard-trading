@@ -22,7 +22,8 @@ jobs:
     defaults:
       run:
         # Windows PowerShell 5.1 selalu ada di Windows; service runner tidak selalu menemukan bash.
-        shell: powershell
+        # -ExecutionPolicy Bypass: Windows memblokir skrip .ps1 secara bawaan (hanya berlaku untuk proses ini).
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"
     env:
       PYTHONUTF8: "1"
       PYTHONIOENCODING: utf-8
