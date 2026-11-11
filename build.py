@@ -572,6 +572,10 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
                 body = ("JANGAN TRADING: " + ", ".join(stops)) if stops else \
                     "\n".join(f"{p['code']}: beli ≥ {p['plan']['trigger']}, SL {p['plan']['sl']}, TP {p['plan']['tp']}" for p in picks)
                 once(f"pagi-{target}", f"Daftar Pagi {target}", body, tags="sunrise", click=url)
+            if now.weekday() == 0 and mstatus in ("pra-buka", "buka"):
+                title, body = track.weekly_report(trk.get("days", []), today, (tuning or {}).get("status"),
+                                                  regime.get("status"), coming)
+                once(f"senin-{today}", title, body, tags="calendar", click=url)
             for p in picks:
                 lv = p.get("live")
                 if lv and not stops and lv["status"] in ("terpicu — berjalan", "kena TP", "kena SL"):
@@ -625,6 +629,7 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
 
     meta["build_seconds"] = round(time.time() - t0, 1)
     meta["coverage"] = coverage
+    meta["universe"] = ustate
     meta["errors"] = errors
     write(out, "meta", meta)
     return meta
@@ -641,7 +646,8 @@ def main() -> None:
     shutil.copytree(BASE / "static", out, dirs_exist_ok=True, ignore=shutil.ignore_patterns("data"))
     (out / ".nojekyll").write_text("")
     meta = build_all(out, heavy=a.heavy, demo=os.getenv("DEMO") == "1")
-    print(json.dumps(meta, ensure_ascii=False, indent=1)[:1500])
+    print(json.dumps({k: meta.get(k) for k in ("generated_at", "build_seconds", "errors", "coverage", "universe")},
+                     ensure_ascii=False, indent=1))
 
 
 if __name__ == "__main__":

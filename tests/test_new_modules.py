@@ -183,3 +183,16 @@ def test_store_pull_push_roundtrip(tmp_path, monkeypatch):
     assert {p.name for p in s3.iterdir()} >= {"b.json", "c.json", "track"}
     hdr = subprocess.run(["git", "config", "--get", "http.https://github.com/.extraheader"], cwd=s3, capture_output=True, text=True).stdout
     assert hdr.strip() == "AUTHORIZATION: basic dGVzdA=="
+
+
+def test_weekly_report_text():
+    from datetime import date
+    import track
+    days = [{"target": "2026-11-04", "would_trade": True, "picks": [{"code": "AAA", "result": {"status": "TP", "net_pct": 2.6}}]},
+            {"target": "2026-11-05", "would_trade": False, "picks": [{"code": "BBB", "result": {"status": "SL", "net_pct": -2.4}}]},
+            {"target": "2026-10-20", "would_trade": True, "picks": [{"code": "OLD", "result": {"status": "TP", "net_pct": 9.0}}]}]
+    ev = [{"code": "BBCA", "kind": "Ex-date dividen", "date": "2026-11-12"}, {"code": "X", "kind": "RUPS", "date": "2026-11-30"}]
+    title, body = track.weekly_report(days, date(2026, 11, 9), "tidak_layak", "TURUN", ev)
+    assert title == "Laporan mingguan 09/11"
+    assert "2 hari, 2/2 saham terpicu" in body and "+0,10%" in body and "OLD" not in body
+    assert "TIDAK LAYAK" in body and "BBCA Ex-date dividen 12/11" in body and "RUPS" not in body

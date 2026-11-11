@@ -112,3 +112,31 @@ def codes_to_evaluate(store: Path, today: date) -> set[str]:
         if snap["target"] <= str(today) and str(today - timedelta(days=40)) <= snap["target"]:
             out |= {p["code"] for p in snap["picks"]}
     return out
+
+
+def weekly_report(days: list[dict], today: date, tuning_status: str | None, regime_status: str | None,
+                  events: list[dict]) -> tuple[str, str]:
+    """Ringkasan Senin pagi untuk notifikasi: track record 7 hari terakhir, status sistem, peristiwa minggu ini."""
+    start = str(today - timedelta(days=7))
+    s = summarize([d for d in days if start <= d["target"] < str(today)])
+    f1 = lambda x: "—" if x is None else f"{x:+.2f}%".replace(".", ",")
+    lines = []
+    a, fo = s["all"], s["followed"]
+    if a.get("picks"):
+        lines.append(f"Track record minggu lalu: {a['days']} hari, {a['trades']}/{a['picks']} saham terpicu, "
+                     f"rata-rata {f1(a.get('avg_pct'))}, total {f1(a.get('total_pct'))}.")
+        if fo.get("days"):
+            lines.append(f"Hari 'boleh trading' saja: {fo['days']} hari, total {f1(fo.get('total_pct'))}.")
+    else:
+        lines.append("Track record minggu lalu: belum ada saham yang dinilai.")
+    st_txt = {"layak": "LAYAK", "tidak_layak": "TIDAK LAYAK (lot 0)", "data_kurang": "data kurang (lot dipotong)"}
+    lines.append(f"Status: uji strategi {st_txt.get(tuning_status or '', tuning_status or '—')}; IHSG {regime_status or '—'}.")
+    week_end = str(today + timedelta(days=6))
+    ev = [e for e in events if str(today) <= e["date"] <= week_end]
+    if ev:
+        lines.append("Peristiwa minggu ini: " + "; ".join(f"{e['code']} {e['kind']} {e['date'][8:10]}/{e['date'][5:7]}" for e in ev[:6])
+                     + (f" (+{len(ev) - 6} lagi)" if len(ev) > 6 else "") + ".")
+    else:
+        lines.append("Tidak ada peristiwa terjadwal untuk saham yang dipantau minggu ini.")
+    lines.append("Skor kepatuhan Anda ada di menu Jurnal.")
+    return f"Laporan mingguan {today:%d/%m}", "\n".join(lines)
