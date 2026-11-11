@@ -15,6 +15,10 @@ on:
         description: "Sertakan backtest swing & perbarui fundamental (lebih lama)"
         type: boolean
         default: false
+      dari:
+        description: "Isi 'cron' bila dipicu cron-job.org (di luar jam bursa otomatis dilewati)"
+        type: string
+        default: manual
 
 permissions:
   contents: write   # menyimpan track record & arsip ke branch `records`
@@ -26,7 +30,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Pemicu dari cron-job.org cukup "tiap 15 menit"; di sini dipilih yang perlu dijalankan:
+  # Senin–Jumat 06.30–16.14 WIB (pra-buka & sesi bursa) dan 17.30–17.59 WIB (data penutupan).
+  cek-jam:
+    runs-on: ubuntu-latest
+    outputs:
+      jalan: ${{ steps.c.outputs.jalan }}
+    steps:
+      - id: c
+        run: |
+          JALAN=true
+          if [ "${{ inputs.dari }}" = "cron" ]; then
+            D=$(TZ=Asia/Jakarta date +%u); T=$((10#$(TZ=Asia/Jakarta date +%H%M)))
+            JALAN=false
+            if [ "$D" -le 5 ] && { { [ "$T" -ge 630 ] && [ "$T" -lt 1615 ]; } || { [ "$T" -ge 1730 ] && [ "$T" -lt 1800 ]; }; }; then
+              JALAN=true
+            fi
+          fi
+          echo "jalan=$JALAN" >> "$GITHUB_OUTPUT"
+          echo "Dijalankan: $JALAN"
+
   build:
+    needs: cek-jam
+    if: needs.cek-jam.outputs.jalan == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

@@ -127,14 +127,14 @@ Jadwal bawaan GitHub Actions sering terlambat atau dilewati, terutama di reposit
    - *Permissions → Repository permissions → Actions:* **Read and write**. Izin lain tidak perlu.
    - Tetapkan masa berlaku (misalnya 1 tahun), lalu salin tokennya.
 2. **Buat akun di cron-job.org**, lalu klik *Create cronjob*:
-   - URL: `https://api.github.com/repos/AlifarikWin/dashboard-trading/actions/workflows/dashboard.yml/dispatches`
-   - Jadwal: tiap 15 menit, Senin–Jumat, pukul 06–16, zona waktu Asia/Jakarta.
-   - *Advanced:* Request method **POST**. Isi *headers*:
+   - *COMMON*: URL `https://api.github.com/repos/AlifarikWin/dashboard-trading/actions/workflows/dashboard.yml/dispatches`, *Execution schedule* **Every 15 minutes**.
+   - *ADVANCED*: *Request method* **POST**. Isi *headers*:
      - `Authorization: Bearer <token>`
      - `Accept: application/vnd.github+json`
      - `X-GitHub-Api-Version: 2022-11-28`
-   - Request body: `{"ref":"main"}`
-3. Buat cronjob kedua dengan isian yang sama untuk pukul **17.45** Senin–Jumat. *Run* setelah pukul 17.00 otomatis menyertakan backtest swing.
+   - *Request body*: `{"ref":"main","inputs":{"dari":"cron"}}`
+
+Cukup satu *cronjob*. *Workflow* sendiri yang memilih kapan benar-benar dijalankan: Senin–Jumat pukul 06.30–16.14 WIB dan 17.30–17.59 WIB (data penutupan dan uji strategi). Pemicu di luar jam itu langsung dilewati dalam beberapa detik.
 
 Respons sukses dari GitHub adalah **HTTP 204**.
 
