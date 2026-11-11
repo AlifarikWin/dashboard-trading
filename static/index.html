@@ -14,22 +14,36 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 button{font:inherit;color:inherit;cursor:pointer}
-.wrap{max-width:720px;margin:0 auto;padding:12px 14px calc(84px + env(safe-area-inset-bottom))}
+.wrap{padding:12px 14px calc(28px + env(safe-area-inset-bottom));transition:margin .2s ease}
 /* header */
 header{display:flex;align-items:center;gap:10px;padding:4px 0 12px}
-header h1{font-size:17px;margin:0;font-weight:700}
+header h1{font-size:17px;margin:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:99px;background:var(--card);border:1px solid var(--line);color:var(--mute);white-space:nowrap}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--mute)}
 .dot.on{background:var(--green)}
-.iconbtn{margin-left:auto;background:var(--card);border:1px solid var(--line);border-radius:10px;width:38px;height:38px;display:grid;place-items:center}
+#mkt{margin-left:auto}
+.iconbtn{background:var(--card);border:1px solid var(--line);border-radius:10px;width:38px;height:38px;display:grid;place-items:center}
 .iconbtn.on{border-color:var(--green);color:var(--green)}
-/* bottom nav */
-nav{position:fixed;left:0;right:0;bottom:0;background:rgba(14,19,24,.96);backdrop-filter:blur(8px);border-top:1px solid var(--line);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom);z-index:10}
-nav .in{display:flex;width:100%;max-width:720px}
-nav button{flex:1;background:none;border:0;padding:9px 0 8px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--mute)}
-nav button svg{width:22px;height:22px}
-nav button.on{color:var(--blue)}
-nav .badge{position:absolute;margin:-4px 0 0 18px;background:var(--red);color:#fff;font-size:10px;border-radius:99px;padding:0 5px}
+/* sidebar */
+.sb{position:fixed;top:0;bottom:0;left:0;width:248px;background:#11171d;border-right:1px solid var(--line);z-index:15;display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .2s ease}
+.sb.open{transform:none}
+.sb .brand{display:flex;align-items:center;gap:10px;padding:16px 16px 10px;font-weight:800;font-size:16px}
+.sb .grp{font-size:11px;color:var(--mute);letter-spacing:.6px;text-transform:uppercase;padding:14px 18px 6px}
+.sb button.it{display:flex;align-items:center;gap:12px;width:calc(100% - 16px);margin:1px 8px;padding:10px 12px;border:0;background:none;border-radius:10px;color:#c4ceda;font-size:14.5px;text-align:left}
+.sb button.it svg{width:19px;height:19px;flex:none;opacity:.85}
+.sb button.it:hover{background:var(--card)}
+.sb button.it.on{background:var(--blue-bg);color:var(--blue)}
+.sb .badge{margin-left:auto;background:var(--red);color:#fff;font-size:11px;border-radius:99px;padding:0 7px}
+.sb .scroller{overflow-y:auto;flex:1;padding-bottom:16px}
+.sb-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:14}
+.menubtn{background:var(--card);border:1px solid var(--line);border-radius:10px;width:38px;height:38px;display:grid;place-items:center;flex:none}
+@media (min-width:900px){
+  .sb-bg{display:none!important}
+  body.sb-pinned .wrap{margin-left:248px}
+  body.sb-pinned .wrap{max-width:none;padding-left:28px;padding-right:28px}
+  body.sb-pinned .inner{max-width:760px}
+}
+.inner{max-width:720px;margin:0 auto}
 /* generic */
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:10px}
 .h{font-size:13px;color:var(--mute);margin:16px 2px 8px;font-weight:600;letter-spacing:.3px;text-transform:uppercase}
@@ -111,15 +125,22 @@ th{color:var(--mute);font-weight:500;font-size:12px}
 .sheet p{color:#cdd6df;font-size:14px;margin:8px 0}
 .step{display:flex;gap:10px;margin:10px 0;font-size:14px;color:#cdd6df}
 .step b.n{background:var(--blue-bg);color:var(--blue);border-radius:50%;width:24px;height:24px;display:grid;place-items:center;flex:none;font-size:13px}
-.toast{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#24303c;border-radius:12px;padding:10px 14px;font-size:14px;max-width:92vw;box-shadow:0 8px 30px rgba(0,0,0,.4);z-index:30}
-.back{background:none;border:0;color:var(--blue);padding:0;margin:0 0 10px;font-size:14px}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#24303c;border-radius:12px;padding:10px 14px;font-size:14px;max-width:92vw;box-shadow:0 8px 30px rgba(0,0,0,.4);z-index:30}
+.help-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.help-item:last-child{border-bottom:0}
+.help-item .ic{width:36px;height:36px;border-radius:10px;background:var(--blue-bg);color:var(--blue);display:grid;place-items:center;flex:none}
+.help-item .ic svg{width:19px;height:19px}
+.help-item b{display:block;margin-bottom:2px}
+.help-item .when{font-size:12.5px;color:var(--amber);margin-top:4px}
 @media (min-width:600px){.levels b{font-size:15px}}
 </style>
 </head>
 <body>
-<div class="wrap">
+<aside class="sb" id="sb"><div class="brand"><svg width="22" height="22" viewBox="0 0 16 16"><path d="M1 12l4-4 3 3 6-7" stroke="#22c27b" stroke-width="2" fill="none"/></svg>Trading BEI</div><div class="scroller"><div class="grp">Utama</div><button class="it" data-p="today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg><span>Hari Ini</span></button><button class="it" data-p="pos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg><span>Posisi Saya</span><span class="badge hide" id="posBadge"></span></button><button class="it" data-p="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span>Cek Saham</span></button><button class="it" data-p="jour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12a4 4 0 014 4v12H8a4 4 0 01-4-4z"/><path d="M8 9h8M8 13h6"/></svg><span>Jurnal</span></button><div class="grp">Analisis</div><button class="it" data-p="signals"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 4 8-9"/><path d="M14 6h6v6"/></svg><span>Sinyal Watchlist</span></button><button class="it" data-p="radar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12l6-6"/></svg><span>Radar Swing</span></button><button class="it" data-p="bt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg><span>Hasil Uji Strategi</span></button><div class="grp">Bantuan</div><button class="it" data-p="set"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg><span>Pengaturan</span></button><button class="it" data-p="guide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h7a3 3 0 013 3v13a2 2 0 00-2-2H2zM22 4h-7a3 3 0 00-3 3v13a2 2 0 012-2h8z"/></svg><span>Panduan Harian</span></button><button class="it" data-p="help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 015.8 1c0 2-3 3-3 3M12 17h.01"/></svg><span>Fungsi Menu</span></button></div></aside><div class="sb-bg hide" id="sbBg"></div>
+<div class="wrap"><div class="inner">
   <header>
-    <h1>Trading BEI</h1>
+    <button class="menubtn" id="menuBtn" aria-label="Tampilkan/sembunyikan menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    <h1 id="pageTitle">Hari Ini</h1>
     <span class="chip" id="mkt"><span class="dot"></span><span>memuat…</span></span>
     <button class="iconbtn" id="bell" title="Alert bunyi & notifikasi" aria-label="Alert">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
@@ -136,7 +157,7 @@ th{color:var(--mute);font-weight:500;font-size:12px}
 
   <!-- POSISI -->
   <section id="p-pos" class="hide">
-    <div class="row" style="margin-bottom:10px"><b class="grow" style="font-size:18px">Posisi saya</b><button class="btn sm" id="addPos">+ Tambah</button></div>
+    <div class="row" style="margin-bottom:10px"><span class="grow muted">Saham yang sedang Anda pegang</span><button class="btn sm" id="addPos">+ Tambah</button></div>
     <div id="posList"></div>
   </section>
 
@@ -155,34 +176,14 @@ th{color:var(--mute);font-weight:500;font-size:12px}
 
   <!-- JURNAL -->
   <section id="p-jour" class="hide">
-    <div class="row" style="margin-bottom:10px"><b class="grow" style="font-size:18px">Jurnal</b><button class="btn sm" id="addJ">+ Catat</button></div>
+    <div class="row" style="margin-bottom:10px"><span class="grow muted">Transaksi yang sudah selesai</span><button class="btn sm" id="addJ">+ Catat</button></div>
     <div id="jStats"></div>
     <div id="jList"></div>
   </section>
 
-  <!-- LAINNYA -->
-  <section id="p-more" class="hide">
-    <div id="moreMenu">
-      <b style="font-size:18px;display:block;margin-bottom:10px">Lainnya</b>
-      <div class="list">
-        <button class="li" data-sub="signals"><span class="grow"><b>Sinyal watchlist</b><br><span class="muted">BUY / SELL saham pilihan</span></span><span class="chev">›</span></button>
-        <button class="li" data-sub="radar"><span class="grow"><b>Radar swing</b><br><span class="muted">Kandidat sebelum breakout</span></span><span class="chev">›</span></button>
-        <button class="li" data-sub="bt"><span class="grow"><b>Hasil uji strategi</b><br><span class="muted">Day trade & swing</span></span><span class="chev">›</span></button>
-        <button class="li" data-sub="set"><span class="grow"><b>Pengaturan</b><br><span class="muted">Modal, risiko, batas rugi</span></span><span class="chev">›</span></button>
-        <button class="li" data-sub="guide"><span class="grow"><b>Panduan</b><br><span class="muted">Cara pakai dengan Stockbit</span></span><span class="chev">›</span></button>
-      </div>
-    </div>
-    <div id="subPage" class="hide"><button class="back" id="subBack">‹ Lainnya</button><div id="subBody"></div></div>
-  </section>
-</div>
-
-<nav><div class="in">
-  <button data-p="today" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>Hari Ini</button>
-  <button data-p="pos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Posisi<span class="badge hide" id="posBadge"></span></button>
-  <button data-p="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Cek</button>
-  <button data-p="jour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h12a4 4 0 014 4v12H8a4 4 0 01-4-4z"/><path d="M8 9h8M8 13h6"/></svg>Jurnal</button>
-  <button data-p="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Lainnya</button>
-</div></nav>
+  <!-- HALAMAN ANALISIS / BANTUAN -->
+  <section id="p-sub" class="hide"><div id="subBody"></div></section>
+</div></div>
 
 <div id="sheetBg" class="sheet-bg hide"><div class="sheet" id="sheet"></div></div>
 <div id="toast" class="toast hide"></div>
@@ -218,21 +219,33 @@ function sheet(html) { $("#sheet").innerHTML = `<div class="grab"></div>` + html
 function closeSheet() { $("#sheetBg").classList.add("hide"); $("#sheet").innerHTML = ""; document.body.style.overflow = ""; }
 $("#sheetBg").onclick = e => { if (e.target.id === "sheetBg" || e.target.closest("[data-close]")) closeSheet(); };
 
-// ================= navigasi =================
+// ================= navigasi (sidebar) =================
+const TITLES = {today: "Hari Ini", pos: "Posisi Saya", check: "Cek Saham", jour: "Jurnal", signals: "Sinyal Watchlist",
+  radar: "Radar Swing", bt: "Hasil Uji Strategi", set: "Pengaturan", guide: "Panduan Harian", help: "Fungsi Menu"};
+const SUB = {signals: () => renderSignals(), radar: () => renderRadar(), bt: () => renderBT(), set: () => renderSettings(), guide: () => renderGuide(), help: () => renderHelp()};
+let page = "today";
+const isDesk = () => window.matchMedia("(min-width:900px)").matches;
+function setSidebar(open) {
+  $("#sb").classList.toggle("open", open);
+  $("#sbBg").classList.toggle("hide", !open || isDesk());
+  document.body.classList.toggle("sb-pinned", open && isDesk());
+  if (isDesk()) store.set("sbOpen", open);
+}
+$("#menuBtn").onclick = () => setSidebar(!$("#sb").classList.contains("open"));
+$("#sbBg").onclick = () => setSidebar(false);
+window.addEventListener("resize", () => setSidebar(isDesk() ? store.get("sbOpen", true) : false));
 function go(p) {
-  $$("nav button").forEach(b => b.classList.toggle("on", b.dataset.p === p));
-  $$("section[id^=p-]").forEach(s => s.classList.toggle("hide", s.id !== "p-" + p));
-  if (p === "more") { $("#moreMenu").classList.remove("hide"); $("#subPage").classList.add("hide"); }
+  page = p;
+  $$(".sb .it").forEach(b => b.classList.toggle("on", b.dataset.p === p));
+  $("#pageTitle").textContent = TITLES[p];
+  const core = ["today", "pos", "check", "jour"].includes(p);
+  $$("section[id^=p-]").forEach(s => s.classList.toggle("hide", s.id !== (core ? "p-" + p : "p-sub")));
+  if (!core) SUB[p]();
+  if (!isDesk()) setSidebar(false);
   window.scrollTo(0, 0);
 }
-$$("nav button").forEach(b => b.onclick = () => go(b.dataset.p));
-$$("[data-sub]").forEach(b => b.onclick = () => openSub(b.dataset.sub));
-$("#subBack").onclick = () => go("more");
-function openSub(k) {
-  $("#moreMenu").classList.add("hide"); $("#subPage").classList.remove("hide");
-  ({signals: renderSignals, radar: renderRadar, bt: renderBT, set: renderSettings, guide: renderGuide})[k]();
-  $("#subPage").dataset.k = k; window.scrollTo(0, 0);
-}
+$$(".sb .it").forEach(b => b.onclick = () => go(b.dataset.p));
+function openSub(k) { go(k); }
 
 // ================= pengaturan & risiko =================
 function settings() {
@@ -339,7 +352,7 @@ function renderAll() {
   const n = getPos().filter(p => posStatus(p).label === "JUAL").length;
   $("#posBadge").textContent = n; $("#posBadge").classList.toggle("hide", !n);
   renderToday(); renderPositions(); renderJournal(); fillTickers();
-  const k = $("#subPage").dataset.k; if (k && !$("#subPage").classList.contains("hide")) openSub(k);
+  if (SUB[page]) SUB[page]();
 }
 
 // ================= HARI INI =================
@@ -586,11 +599,10 @@ function renderCheck(j, d) {
 // ================= LAINNYA: sinyal, radar, uji, pengaturan, panduan =================
 let sigFilter = "BUY";
 function renderSignals() {
-  if (!SIG) return;
+  if (!SIG) return $("#subBody").innerHTML = `<div class="empty">Memuat…</div>`;
   const c = SIG.counts, list = SIG.signals.filter(s => sigFilter === "ALL" || s.signal === sigFilter);
   const tag = {BUY: "t-green", SELL: "t-red", WATCH: "t-amber", NETRAL: "t-gray"};
-  $("#subBody").innerHTML = `<b style="font-size:18px;display:block;margin-bottom:10px">Sinyal watchlist</b>
-    <div class="seg">${[["BUY", c.BUY], ["SELL", c.SELL], ["WATCH", c.WATCH], ["ALL", SIG.signals.length]].map(([k, n]) => `<button data-f="${k}" class="${sigFilter === k ? "on" : ""}">${k === "ALL" ? "Semua" : k} ${n}</button>`).join("")}</div>
+  $("#subBody").innerHTML = `<div class="seg">${[["BUY", c.BUY], ["SELL", c.SELL], ["WATCH", c.WATCH], ["ALL", SIG.signals.length]].map(([k, n]) => `<button data-f="${k}" class="${sigFilter === k ? "on" : ""}">${k === "ALL" ? "Semua" : k} ${n}</button>`).join("")}</div>
     ${list.length ? `<div class="list">${list.map(s => `<button class="li" data-sig="${s.ticker}"><span class="code">${s.ticker}</span><span class="tag ${tag[s.signal]}">${s.signal}</span>
       <span class="px">${fmt(s.price)}</span><span class="chg ${cls(s.change_pct)}">${pct(s.change_pct)}</span><span class="chev">›</span></button>`).join("")}</div>` : `<div class="empty">Tidak ada.</div>`}`;
   $$("#subBody [data-f]").forEach(b => b.onclick = () => { sigFilter = b.dataset.f; renderSignals(); });
@@ -603,9 +615,9 @@ function renderSignals() {
       <div class="btns"><button class="btn ghost" data-close>Tutup</button><button class="btn" data-chart="${s.ticker}">Chart</button></div>`); });
 }
 function renderRadar() {
+  if (!SIG) return $("#subBody").innerHTML = `<div class="empty">Memuat…</div>`;
   const all = SIG.radar, list = all.filter(x => x.kandidat);
-  $("#subBody").innerHTML = `<b style="font-size:18px;display:block;margin-bottom:4px">Radar swing</b>
-    <p class="muted" style="margin:0 0 10px">Pola akumulasi sebelum breakout. Peluang, bukan kepastian.</p>
+  $("#subBody").innerHTML = `<p class="muted" style="margin:0 0 10px">Pola akumulasi sebelum breakout. Peluang, bukan kepastian.</p>
     ${list.length ? `<div class="list">${list.map(x => `<button class="li" data-rad="${x.ticker}"><span class="code">${x.ticker}</span>
       <span class="grow"><span class="scorebar" style="margin:0"><i style="width:${x.score}%"></i></span></span><span class="mono" style="min-width:28px;text-align:right">${x.score}</span><span class="chev">›</span></button>`).join("")}</div>`
       : `<div class="empty">Belum ada kandidat. Hari tanpa peluang bagus berarti tidak trading.</div>`}`;
@@ -618,8 +630,9 @@ function renderRadar() {
       <div class="btns"><button class="btn ghost" data-close>Tutup</button><button class="btn" data-chart="${x.ticker}">Chart</button></div>`); });
 }
 async function renderBT() {
+  if (!DT) return $("#subBody").innerHTML = `<div class="empty">Memuat…</div>`;
   const dt = DT.dt_backtest || {};
-  let h = `<b style="font-size:18px;display:block;margin-bottom:10px">Hasil uji strategi</b><div class="h" style="margin-top:0">Day trade (Daftar Pagi)</div>`;
+  let h = `<div class="h" style="margin-top:0">Day trade (Daftar Pagi)</div>`;
   h += dt.trades ? `<div class="kpis"><div class="kpi"><span>Rata-rata/transaksi</span><b class="${cls(dt.avg_pct)}">${pct(dt.avg_pct)}</b></div>
       <div class="kpi"><span>Win rate</span><b>${fmt1(dt.win_rate)}%</b></div><div class="kpi"><span>Transaksi</span><b>${dt.trades}</b></div><div class="kpi"><span>Hari data</span><b>${dt.days}</b></div></div>`
     : `<div class="empty">Belum ada transaksi uji.</div>`;
@@ -636,8 +649,7 @@ async function renderBT() {
 }
 function renderSettings() {
   const s = settings();
-  $("#subBody").innerHTML = `<b style="font-size:18px;display:block;margin-bottom:10px">Pengaturan</b>
-    <div class="card"><div class="fgrid">
+  $("#subBody").innerHTML = `<div class="card"><div class="fgrid">
       <div class="span"><label class="f">Modal trading (Rp)</label><input id="sCap" type="number" inputmode="numeric" value="${s.cap}"></div>
       <div><label class="f">Risiko per transaksi (%)</label><input id="sRisk" type="number" step="0.1" value="${s.risk}"></div>
       <div><label class="f">Batas rugi/minggu (%)</label><input id="sWeek" type="number" step="0.5" value="${s.week}"></div>
@@ -647,8 +659,7 @@ function renderSettings() {
   $("#sSave").onclick = () => { store.set("settings", {cap: +$("#sCap").value, risk: +$("#sRisk").value, week: +$("#sWeek").value, maxPos: +$("#sMax").value}); toast("Tersimpan."); renderAll(); };
 }
 function renderGuide() {
-  $("#subBody").innerHTML = `<b style="font-size:18px;display:block;margin-bottom:10px">Panduan</b>
-    <div class="card"><b>Rutinitas harian</b>
+  $("#subBody").innerHTML = `<div class="card"><b>Rutinitas harian</b>
       <div class="step"><b class="n">1</b><div><b>Pagi:</b> buka Hari Ini. Jika "Jangan trading", selesai.</div></div>
       <div class="step"><b class="n">2</b><div>Jika ada saham siap: tekan <b>Cara pasang</b>, lalu pasang Auto Buy di Stockbit.</div></div>
       <div class="step"><b class="n">3</b><div><b>Istirahat:</b> yang terbeli → <b>Sudah beli</b>, lalu pasang SL & TP di Stockbit.</div></div>
@@ -656,6 +667,13 @@ function renderGuide() {
     <div class="card"><b>Cek bandar di Stockbit</b><p class="muted">Broker Summary 1 & 5 hari. Bagus: 3 pembeli teratas jauh lebih besar dari 3 penjual teratas. Bahaya: pembeli tersebar di broker ritel, penjual didominasi 1–2 broker besar.</p></div>
     <div class="card"><b>Kenapa cut loss penting</b><p class="muted">Rugi 10% butuh naik 11% untuk balik modal. Rugi 30% butuh 43%. Rugi 50% butuh 100%.</p></div>
     <p class="muted">Sinyal dari aturan teknikal otomatis, bukan rekomendasi investasi. Data dapat tertunda.</p>`;
+}
+
+function renderHelp() {
+  $("#subBody").innerHTML = `<p class="muted" style="margin:0 0 10px">Tekan tombol ☰ di kiri atas untuk membuka atau menyembunyikan menu.</p>
+    <div class="card"><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg></div><div><b>Hari Ini</b><span class="muted" style="font-size:14px;color:#cdd6df">Halaman utama. Satu kesimpulan: boleh trading atau tidak hari ini, plus daftar saham day trade lengkap dengan harga Beli, Stop loss, Take profit, dan jumlah Lot.</span><div class="when">Kapan: Buka setiap pagi sebelum 08.45.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></div><div><b>Posisi Saya</b><span class="muted" style="font-size:14px;color:#cdd6df">Daftar saham yang sedang Anda pegang. Statusnya berubah menjadi JUAL saat harga kena stop loss, mencapai take profit, atau muncul sinyal jual.</span><div class="when">Kapan: Buka saat istirahat dan sebelum 15.45.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div><div><b>Cek Saham</b><span class="muted" style="font-size:14px;color:#cdd6df">Periksa satu saham: layak dibeli atau tidak. Isi harga beli Anda untuk melihat kondisi posisi dan batas jual (cut loss).</span><div class="when">Kapan: Sebelum membeli, atau saat posisi sedang minus.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12a4 4 0 014 4v12H8a4 4 0 01-4-4z"/><path d="M8 9h8M8 13h6"/></svg></div><div><b>Jurnal</b><span class="muted" style="font-size:14px;color:#cdd6df">Catatan transaksi yang sudah selesai. Menghitung untung/rugi, win rate, dan menunjukkan kebiasaan yang membuat rugi. Juga dipakai untuk rem rugi mingguan.</span><div class="when">Kapan: Setiap kali selesai menjual saham.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 4 8-9"/><path d="M14 6h6v6"/></svg></div><div><b>Sinyal Watchlist</b><span class="muted" style="font-size:14px;color:#cdd6df">Sinyal BUY/SELL untuk saham pilihan di watchlist, diperbarui saat bursa buka.</span><div class="when">Kapan: Untuk melihat saham besar di luar Daftar Pagi.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12l6-6"/></svg></div><div><b>Radar Swing</b><span class="muted" style="font-size:14px;color:#cdd6df">Saham dengan pola akumulasi sebelum naik, untuk disimpan beberapa hari (swing), bukan day trade.</span><div class="when">Kapan: Jika ingin trading jangka beberapa hari.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg></div><div><b>Hasil Uji Strategi</b><span class="muted" style="font-size:14px;color:#cdd6df">Hasil jika aturan dashboard dijalankan di masa lalu: rata-rata untung/rugi per transaksi dan win rate.</span><div class="when">Kapan: Sebelum memakai uang sungguhan, dan cek ulang tiap minggu.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></div><div><b>Pengaturan</b><span class="muted" style="font-size:14px;color:#cdd6df">Isi modal, risiko per transaksi, dan batas rugi mingguan. Semua jumlah lot dihitung dari sini.</span><div class="when">Kapan: Sekali di awal, lalu saat modal berubah.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h7a3 3 0 013 3v13a2 2 0 00-2-2H2zM22 4h-7a3 3 0 00-3 3v13a2 2 0 012-2h8z"/></svg></div><div><b>Panduan Harian</b><span class="muted" style="font-size:14px;color:#cdd6df">Urutan kerja harian dengan Stockbit dan cara cek bandar secara manual.</span><div class="when">Kapan: Saat baru mulai memakai dashboard.</div></div></div></div>
+    <div class="card"><b>Arti warna</b>
+      <div class="reasons" style="margin-top:8px"><span class="tag t-green">Aman / untung</span><span class="tag t-amber">Hati-hati</span><span class="tag t-red">Stop / rugi</span><span class="tag t-blue">Informasi</span></div></div>`;
 }
 
 // ================= chart TradingView =================
@@ -676,6 +694,8 @@ function openChart(code) {
 document.addEventListener("click", e => { const b = e.target.closest("[data-chart]"); if (b) { e.stopPropagation(); openChart(b.dataset.chart); } });
 
 paintBell();
+setSidebar(isDesk() ? store.get("sbOpen", true) : false);
+go("today");
 load();
 </script>
 </body>
