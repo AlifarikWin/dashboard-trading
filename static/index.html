@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1419">
 <title>Trading BEI</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Trading BEI">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Cpath d=%22M1 12l4-4 3 3 6-7%22 stroke=%22%231fbf75%22 stroke-width=%222%22 fill=%22none%22/%3E%3C/svg%3E">
 <script src="vendor/lightweight-charts.standalone.production.js" defer></script>
 <style>
@@ -127,6 +131,24 @@ th{color:var(--mute);font-weight:500;font-size:12px}
 .step{display:flex;gap:10px;margin:10px 0;font-size:14px;color:#cdd6df}
 .step b.n{background:var(--blue-bg);color:var(--blue);border-radius:50%;width:24px;height:24px;display:grid;place-items:center;flex:none;font-size:13px}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#24303c;border-radius:12px;padding:10px 14px;font-size:14px;max-width:92vw;box-shadow:0 8px 30px rgba(0,0,0,.4);z-index:30}
+.ti{background:none;border:0;color:var(--mute);padding:0 0 0 3px;font-size:12px;line-height:1;cursor:pointer;vertical-align:baseline}
+.ti:hover{color:var(--blue)}
+.flags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.flag{font-size:12px;border-radius:8px;padding:4px 8px;background:var(--amber-bg);color:var(--amber)}
+.flag.block{background:var(--red-bg);color:var(--red)}
+.news{padding:12px 14px;border-bottom:1px solid var(--line)}
+.news:last-child{border-bottom:0}
+.news a{color:var(--text);text-decoration:none;font-size:14.5px;line-height:1.4;display:block;margin:4px 0}
+.news a:hover{text-decoration:underline}
+.news .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--mute)}
+.dot2{width:8px;height:8px;border-radius:50%;display:inline-block}
+.tone-positif{background:var(--green)}.tone-negatif{background:var(--red)}.tone-netral{background:var(--mute)}
+.toggle{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mute);margin:0 2px 10px}
+.toggle input{width:auto}
+.tour-hl{position:fixed;z-index:40;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.72),0 0 0 2px var(--blue);pointer-events:none;transition:all .2s}
+.tour-box{position:fixed;z-index:41;left:12px;right:12px;max-width:420px;margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.tour-box p{margin:6px 0 12px;font-size:14.5px;color:#cdd6df}
+.offline{background:var(--amber-bg);color:var(--amber);border-radius:10px;padding:8px 12px;font-size:13px;margin-bottom:10px}
 .zone{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;font-size:12.5px}
 .zone span{background:var(--card2);border-radius:8px;padding:4px 8px;color:#cdd6df}
 .zone b{font-family:var(--mono);font-weight:600}
@@ -155,7 +177,7 @@ th{color:var(--mute);font-weight:500;font-size:12px}
 </style>
 </head>
 <body>
-<aside class="sb" id="sb"><div class="brand"><svg width="22" height="22" viewBox="0 0 16 16"><path d="M1 12l4-4 3 3 6-7" stroke="#22c27b" stroke-width="2" fill="none"/></svg>Trading BEI</div><div class="scroller"><div class="grp">Utama</div><button class="it" data-p="today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg><span>Hari Ini</span></button><button class="it" data-p="pos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg><span>Posisi Saya</span><span class="badge hide" id="posBadge"></span></button><button class="it" data-p="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span>Cek Saham</span></button><button class="it" data-p="jour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12a4 4 0 014 4v12H8a4 4 0 01-4-4z"/><path d="M8 9h8M8 13h6"/></svg><span>Jurnal</span></button><div class="grp">Analisis</div><button class="it" data-p="analysis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M17 4v16"/><rect x="4" y="8" width="6" height="7" rx="1"/><rect x="14" y="6" width="6" height="9" rx="1"/></svg><span>Analisis Saham</span></button><button class="it" data-p="signals"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 4 8-9"/><path d="M14 6h6v6"/></svg><span>Sinyal Watchlist</span></button><button class="it" data-p="radar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12l6-6"/></svg><span>Radar Swing</span></button><button class="it" data-p="bt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg><span>Hasil Uji Strategi</span></button><div class="grp">Bantuan</div><button class="it" data-p="set"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg><span>Pengaturan</span></button><button class="it" data-p="guide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h7a3 3 0 013 3v13a2 2 0 00-2-2H2zM22 4h-7a3 3 0 00-3 3v13a2 2 0 012-2h8z"/></svg><span>Panduan Harian</span></button><button class="it" data-p="help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 015.8 1c0 2-3 3-3 3M12 17h.01"/></svg><span>Fungsi Menu</span></button></div></aside><div class="sb-bg hide" id="sbBg"></div>
+<aside class="sb" id="sb"><div class="brand"><svg width="22" height="22" viewBox="0 0 16 16"><path d="M1 12l4-4 3 3 6-7" stroke="#22c27b" stroke-width="2" fill="none"/></svg>Trading BEI</div><div class="scroller"><div class="grp">Utama</div><button class="it" data-p="today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg><span>Hari Ini</span></button><button class="it" data-p="pos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg><span>Posisi Saya</span><span class="badge hide" id="posBadge"></span></button><button class="it" data-p="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span>Cek Saham</span></button><button class="it" data-p="jour"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12a4 4 0 014 4v12H8a4 4 0 01-4-4z"/><path d="M8 9h8M8 13h6"/></svg><span>Jurnal</span></button><div class="grp">Analisis</div><button class="it" data-p="analysis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M17 4v16"/><rect x="4" y="8" width="6" height="7" rx="1"/><rect x="14" y="6" width="6" height="9" rx="1"/></svg><span>Analisis Saham</span></button><button class="it" data-p="stream"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h13"/><circle cx="19" cy="12" r="2"/></svg><span>Stream Peristiwa</span></button><button class="it" data-p="track"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2h9"/></svg><span>Track Record</span></button><button class="it" data-p="signals"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 4 8-9"/><path d="M14 6h6v6"/></svg><span>Sinyal Watchlist</span></button><button class="it" data-p="radar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12l6-6"/></svg><span>Radar Swing</span></button><button class="it" data-p="bt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg><span>Hasil Uji Strategi</span></button><div class="grp">Bantuan</div><button class="it" data-p="set"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg><span>Pengaturan</span></button><button class="it" data-p="guide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h7a3 3 0 013 3v13a2 2 0 00-2-2H2zM22 4h-7a3 3 0 00-3 3v13a2 2 0 012-2h8z"/></svg><span>Panduan Harian</span></button><button class="it" data-p="help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 015.8 1c0 2-3 3-3 3M12 17h.01"/></svg><span>Fungsi Menu</span></button></div></aside><div class="sb-bg hide" id="sbBg"></div>
 <div class="wrap"><div class="inner">
   <header>
     <button class="menubtn" id="menuBtn" aria-label="Tampilkan/sembunyikan menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
@@ -223,10 +245,56 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
 };
-async function getJSON(p) { const r = await fetch(p + "?t=" + Date.now(), {cache: "no-store"}); if (!r.ok) throw new Error(p + ": " + r.status); return r.json(); }
+let OFFLINE = false;
+async function getJSON(p) {
+  const r = await fetch(p + "?t=" + Date.now(), {cache: "no-store"});
+  if (!r.ok) throw new Error(p + ": " + r.status);
+  if (r.headers.get("X-Offline")) OFFLINE = true; else if (p.includes("meta")) OFFLINE = false;
+  return r.json();
+}
 function toast(t) { const e = $("#toast"); e.textContent = t; e.classList.remove("hide"); clearTimeout(e._h); e._h = setTimeout(() => e.classList.add("hide"), 5000); }
 const tickOf = p => p < 200 ? 1 : p < 500 ? 2 : p < 2000 ? 5 : p < 5000 ? 10 : 25;
 const roundDown = p => { const t = tickOf(p); const r = Math.floor(p / t) * t, t2 = tickOf(r); return t2 !== t ? Math.floor(r / t2) * t2 : r; };
+
+// ================= glosarium istilah (tombol ⓘ) =================
+const GLOSS = {
+  ihsg: ["IHSG", "Indeks Harga Saham Gabungan: gambaran arah pasar secara umum. Saat IHSG turun, kebanyakan saham ikut tertekan, jadi dashboard menyarankan tidak membeli."],
+  rem: ["Rem rugi", "Batas rugi per minggu (atur di Pengaturan) dan batas harian (jumlah transaksi & jumlah rugi). Jika tercapai, semua saran lot jadi 0 agar Anda berhenti sebelum rugi membesar."],
+  uji: ["Uji strategi", "Aturan Daftar Pagi diuji otomatis di data lama lalu dibuktikan di data terbaru yang terpisah. Jika hasilnya merugi setelah fee, dashboard menyarankan tidak trading."],
+  skor: ["Skor", "Nilai 0–100 dari: asing net buy, penutupan dekat harga tertinggi, lonjakan volume, tren, dan akumulasi. Bukan peluang naik dalam persen."],
+  trigger: ["Beli ≥ (trigger)", "Harga pemicu Auto Buy. Order baru terkirim jika harga menembus angka ini, sehingga saham yang lemah sejak pagi tidak ikut terbeli."],
+  sl: ["Stop loss (SL)", "Harga jual otomatis untuk membatasi rugi. Pasang sebagai Auto Sell Stop Loss di Stockbit segera setelah terbeli."],
+  tp: ["Take profit (TP)", "Harga jual otomatis untuk mengambil untung."],
+  lot: ["Lot", "1 lot = 100 lembar. Jumlah lot dihitung agar rugi saat kena stop loss sekitar 1% modal (atur di Pengaturan), lalu dikurangi bila ada kondisi waspada."],
+  buy: ["Area beli", "Zona support terdekat: harga pernah berbalik naik di sini beberapa kali. Dihitung dari titik balik harga sebenarnya."],
+  sell: ["Area jual", "Zona resistance terdekat: harga pernah tertahan turun di sini beberapa kali."],
+  bo: ["Tembus ↑", "Jika harga DITUTUP di atas level ini dengan volume, peluang lanjut naik lebih besar. Tunggu penutupan, jangan bereaksi saat baru menyentuh."],
+  bd: ["Jebol ↓", "Jika harga DITUTUP di bawah level ini, peluang lanjut turun lebih besar. Bagi pemegang saham, ini batas cut loss."],
+  rsi: ["RSI 14", "Ukuran kecepatan naik/turun 14 hari (0–100). ≥70 jenuh beli (rawan koreksi), ≤30 jenuh jual."],
+  atr: ["ATR", "Rata-rata rentang gerak harian. Dipakai untuk menentukan jarak stop loss yang wajar."],
+  ma: ["MA (moving average)", "Rata-rata harga penutupan N hari. Harga di atas MA50 dan MA200 = tren naik."],
+  weekly: ["Tren mingguan", "Arah harga di grafik mingguan. Sinyal beli harian yang melawan tren mingguan sering gagal, jadi tidak dijadikan BUY."],
+  rs: ["Kekuatan vs IHSG", "Kenaikan saham dikurangi kenaikan IHSG pada periode yang sama. Positif = saham lebih kuat dari pasar."],
+  sector: ["Sektor", "Rata-rata kenaikan saham sektor yang sama di watchlist, untuk melihat apakah sektornya sedang diminati."],
+  ara: ["ARA / ARB", "Batas kenaikan (ARA) dan penurunan (ARB) harga dalam sehari yang ditetapkan BEI. Order di luar batas ini otomatis ditolak."],
+  per: ["PER", "Harga dibagi laba per saham. Makin kecil, makin murah dibanding labanya (bandingkan dengan saham sejenis)."],
+  pbv: ["PBV", "Harga dibagi nilai buku per saham. Di bawah 1 berarti harga di bawah nilai buku."],
+  roe: ["ROE", "Laba bersih dibagi ekuitas: seberapa efisien perusahaan menghasilkan laba dari modal pemegang saham."],
+  der: ["DER", "Utang dibagi ekuitas. Makin tinggi, makin besar risiko keuangannya (kecuali bank, yang memang berutang tinggi)."],
+  graham: ["Nilai wajar Graham", "√(22,5 × EPS × nilai buku per saham). Rumus klasik untuk perkiraan kasar nilai wajar, bukan target harga."],
+  winrate: ["Win rate", "Persentase transaksi yang untung setelah fee. Harus dibaca bersama besar untung rata-rata vs rugi rata-rata."],
+  priced: ["Sudah dihargai pasar", "Harga sudah bergerak ≥5% sejak berita terbit. Membeli setelah lonjakan karena berita sering berakhir di pucuk (FOMO)."],
+  track: ["Track record", "Daftar Pagi disimpan sebelum hari perdagangan, lalu dinilai dengan harga sebenarnya hari itu. Ini bukti nyata, bukan simulasi masa lalu."],
+};
+const ti = k => GLOSS[k] ? `<button class="ti" data-term="${k}" aria-label="Penjelasan ${GLOSS[k][0]}">ⓘ</button>` : "";
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-term]"); if (!b) return;
+  e.stopPropagation(); e.preventDefault();
+  const [t, d] = GLOSS[b.dataset.term];
+  sheet(`<h2>${t}</h2><p>${d}</p><button class="btn ghost full" data-close>Mengerti</button>`);
+}, true);
+const TECH_TERM = l => /^RSI/.test(l) ? "rsi" : /ATR|Volatil/.test(l) ? "atr" : /mingguan/.test(l) ? "weekly" : /IHSG/.test(l) ? "rs" : /^Sektor/.test(l) ? "sector"
+  : /^MA|Jarak dari MA/.test(l) ? "ma" : /^PER/.test(l) ? "per" : /^PBV/.test(l) ? "pbv" : /^ROE/.test(l) ? "roe" : /DER/.test(l) ? "der" : /Graham/.test(l) ? "graham" : null;
 
 // ================= state =================
 let SIG = null, META = null, DT = null, CHECK = null, BT = null;
@@ -239,9 +307,9 @@ function closeSheet() { $("#sheetBg").classList.add("hide"); $("#sheet").innerHT
 $("#sheetBg").onclick = e => { if (e.target.id === "sheetBg" || e.target.closest("[data-close]")) closeSheet(); };
 
 // ================= navigasi (sidebar) =================
-const TITLES = {analysis: "Analisis Saham", today: "Hari Ini", pos: "Posisi Saya", check: "Cek Saham", jour: "Jurnal", signals: "Sinyal Watchlist",
+const TITLES = {stream: "Stream Peristiwa", track: "Track Record", analysis: "Analisis Saham", today: "Hari Ini", pos: "Posisi Saya", check: "Cek Saham", jour: "Jurnal", signals: "Sinyal Watchlist",
   radar: "Radar Swing", bt: "Hasil Uji Strategi", set: "Pengaturan", guide: "Panduan Harian", help: "Fungsi Menu"};
-const SUB = {analysis: () => renderAnalysis(), signals: () => renderSignals(), radar: () => renderRadar(), bt: () => renderBT(), set: () => renderSettings(), guide: () => renderGuide(), help: () => renderHelp()};
+const SUB = {stream: () => renderStream(), track: () => renderTrack(), analysis: () => renderAnalysis(), signals: () => renderSignals(), radar: () => renderRadar(), bt: () => renderBT(), set: () => renderSettings(), guide: () => renderGuide(), help: () => renderHelp()};
 let page = "today";
 const isDesk = () => window.matchMedia("(min-width:900px)").matches;
 function setSidebar(open) {
@@ -273,7 +341,20 @@ function openSub(k) { go(k); }
 function settings() {
   const r = (META && META.risk) || {capital_idr: 1e7, risk_per_trade_pct: 1, max_position_pct: 25, fee_buy_pct: .15, fee_sell_pct: .25};
   const s = store.get("settings", {});
-  return {cap: s.cap ?? r.capital_idr, risk: s.risk ?? r.risk_per_trade_pct, maxPos: s.maxPos ?? r.max_position_pct, week: s.week ?? 3, feeB: r.fee_buy_pct, feeS: r.fee_sell_pct};
+  return {cap: s.cap ?? r.capital_idr, risk: s.risk ?? r.risk_per_trade_pct, maxPos: s.maxPos ?? r.max_position_pct, week: s.week ?? 3,
+    maxTrades: s.maxTrades ?? 3, maxLoss: s.maxLoss ?? 2, feeB: r.fee_buy_pct, feeS: r.fee_sell_pct};
+}
+const todayStr = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+function daily() {  // batas harian: jumlah transaksi & rugi hari ini
+  const s = settings(), t = todayStr();
+  const opened = getPos().filter(p => (p.at || "").slice(0, 10) === t).length
+    + getJ().filter(j => (j.openedAt || "").slice(0, 10) === t).length;
+  const closedToday = getJ().filter(j => j.date === t);
+  const losses = closedToday.filter(j => tradePL(j) < 0).length;
+  const why = [];
+  if (opened >= s.maxTrades) why.push(`sudah ${opened} transaksi hari ini (maks ${s.maxTrades})`);
+  if (losses >= s.maxLoss) why.push(`sudah ${losses}× rugi hari ini (maks ${s.maxLoss})`);
+  return {opened, losses, stop: why.length > 0, why};
 }
 const regime = () => (DT && DT.regime) || (SIG && SIG.regime) || {level: "unknown", status: "—"};
 function lots(p, maxShare) {
@@ -284,6 +365,7 @@ function lots(p, maxShare) {
 function adjLots(n) {  // pengaman: rem rugi, kondisi IHSG, hasil uji
   const r = regime(), t = DT && DT.tuning;
   if (brake().stop) return [0, "rem rugi aktif"];
+  if (daily().stop) return [0, "batas harian tercapai"];
   if (r.level === "bad") return [0, "IHSG turun"];
   if (t && t.status === "tidak_layak") return [0, "uji strategi negatif"];
   let why = [];
@@ -358,6 +440,8 @@ async function load() {
     [SIG, META, DT] = await Promise.all([getJSON("data/signals.json"), getJSON("data/meta.json"), getJSON("data/daytrade.json")]);
     CHECK = null;
     renderAll(); detectChanges();
+    $("#offline") && $("#offline").remove();
+    if (OFFLINE) $("#p-today").insertAdjacentHTML("afterbegin", `<div class="offline" id="offline">Mode offline: menampilkan data terakhir yang tersimpan (${esc(META.generated_at)}).</div>`);
     schedule(META.market.status === "buka" || META.market.status === "istirahat" ? 180 : 900);
   } catch (e) {
     $("#hero").innerHTML = `<div class="hero stop"><div class="v" style="font-size:17px">Data belum bisa dimuat</div><div class="muted">${esc(e.message)}. Mencoba lagi…</div></div>`;
@@ -381,12 +465,11 @@ function renderAll() {
 
 // ================= HARI INI =================
 function renderToday() {
-  const d = DT, r = regime(), t = d.tuning, br = brake();
+  const d = DT, r = regime(), t = d.tuning, br = brake(), dl = daily();
   const stops = [], warns = [];
   if (br.stop) stops.push("Batas rugi minggu ini tercapai");
-  if (r.level === "bad") stops.push("IHSG sedang turun");
-  if (t && t.status === "tidak_layak") stops.push("Strategi merugi di uji terakhir");
-  if (!d.picks.length) stops.push("Tidak ada saham yang lolos syarat");
+  if (dl.stop) stops.push("Batas harian tercapai");
+  (d.stops || []).forEach(x => stops.push(x));
   if (r.level === "warn") warns.push("IHSG waspada — lot ½");
   if (t && t.status === "data_kurang") warns.push("Uji belum cukup — lot ½");
   const when = d.for_today ? "Hari ini" : "Besok";
@@ -401,7 +484,7 @@ function renderToday() {
   const tl = !t ? ["—", ""] : t.status === "layak" ? ["LAYAK", "up"] : t.status === "tidak_layak" ? ["MERUGI", "down"] : ["KURANG DATA", "amber"];
   $("#tiles").innerHTML = `
     <button class="tile" data-info="ihsg"><div class="k">IHSG</div><div class="v ${rl[1]}">${rl[0]}</div></button>
-    <button class="tile" data-info="rem"><div class="k">Rem rugi</div><div class="v ${br.stop ? "down" : "up"}">${br.stop ? "BERHENTI" : "AMAN"}</div></button>
+    <button class="tile" data-info="rem"><div class="k">Rem rugi</div><div class="v ${br.stop || dl.stop ? "down" : "up"}">${br.stop || dl.stop ? "BERHENTI" : "AMAN"}</div></button>
     <button class="tile" data-info="uji"><div class="k">Uji strategi</div><div class="v ${tl[1]}">${tl[0]}</div></button>`;
   $$("[data-info]").forEach(b => b.onclick = () => infoSheet(b.dataset.info));
 
@@ -429,22 +512,29 @@ function renderToday() {
 function zonesHtml(z) {
   if (!z) return "";
   const r = a => a ? `<b>${fmt(a[0])}–${fmt(a[1])}</b>` : "—";
-  return `<div class="zone"><span>Area beli ${r(z.buy_zone)}</span><span>Area jual ${r(z.sell_zone)}</span>
-    <span>Tembus ↑ <b class="up">${fmt(z.breakout)}</b></span><span>Jebol ↓ <b class="down">${fmt(z.breakdown)}</b></span></div>`;
+  return `<div class="zone"><span>Area beli ${r(z.buy_zone)}${ti("buy")}</span><span>Area jual ${r(z.sell_zone)}${ti("sell")}</span>
+    <span>Tembus ↑ <b class="up">${fmt(z.breakout)}</b>${ti("bo")}</span><span>Jebol ↓ <b class="down">${fmt(z.breakdown)}</b>${ti("bd")}</span></div>`;
+}
+function flagsHtml(fl) {
+  if (!fl || !fl.length) return "";
+  return `<div class="flags">${fl.map(f => `<span class="flag ${f.block ? "block" : ""}">${f.block ? "⛔ " : "⚠ "}${esc(f.text)}</span>`).join("")}</div>`;
 }
 function pickCard(x) {
   const p = x.plan, [n, why] = adjLots(lots(p, .5));
   const lv = x.live;
   const lvTag = !lv ? "" : lv.status.startsWith("kena TP") ? "t-green" : lv.status.startsWith("kena SL") ? "t-red" : lv.status.startsWith("terpicu") ? "t-amber" : "t-gray";
   return `<div class="card stock">
-    <div class="top"><span class="code">${x.code}</span><span class="tag t-blue">skor ${x.score}</span>
+    <div class="top"><span class="code">${x.code}</span><span class="tag t-blue">skor ${x.score}</span>${ti("skor")}
       <span class="px">${fmt(lv ? lv.last : x.close)}</span><span class="chg ${cls(x.chg_pct)}">${pct(x.chg_pct)}</span></div>
-    ${lv ? `<div style="margin-top:8px"><span class="tag ${lvTag}">${esc(lv.status)}</span></div>` : ""}
+    ${lv || x.rs20 != null || (x.news || []).length ? `<div class="flags">${lv ? `<span class="tag ${lvTag}">${esc(lv.status)}</span>` : ""}
+      ${x.rs20 != null ? `<span class="tag ${x.rs20 > 0 ? "t-green" : "t-gray"}">vs IHSG ${sign(x.rs20)}${fmt1(x.rs20)}</span>` : ""}
+      ${(x.news || []).length ? `<button class="tag t-blue" style="border:0" data-newsof="${x.code}">${x.news.length} berita</button>` : ""}</div>` : ""}
+    ${flagsHtml(x.flags)}
     <div class="levels">
-      <div><span>Beli ≥</span><b>${fmt(p.trigger)}</b></div>
-      <div><span>Stop loss</span><b class="down">${fmt(p.sl)}</b></div>
-      <div><span>Take profit</span><b class="up">${fmt(p.tp)}</b></div>
-      <div><span>Lot</span><b>${n}</b></div>
+      <div><span>Beli ≥${ti("trigger")}</span><b>${fmt(p.trigger)}</b></div>
+      <div><span>Stop loss${ti("sl")}</span><b class="down">${fmt(p.sl)}</b></div>
+      <div><span>Take profit${ti("tp")}</span><b class="up">${fmt(p.tp)}</b></div>
+      <div><span>Lot${ti("lot")}</span><b>${n}</b></div>
     </div>
     ${why ? `<div class="muted" style="margin-top:6px">Lot dikurangi: ${esc(why)}</div>` : ""}
     ${zonesHtml(x.zones)}
@@ -461,11 +551,14 @@ function howSheet(code) {
     <div class="step"><b class="n">3</b><div>Belum kena TP/SL sampai 15.45? Jual manual.</div></div>
     ${zonesHtml(x.zones)}
     <div class="btns"><button class="btn ghost sm" data-an="${code}">Analisis</button><button class="btn ghost sm" data-bought2="${code}">Sudah beli</button></div>
+    ${flagsHtml(x.flags)}
     <div class="h">Kenapa ${code}</div>
     <ul class="checks">${x.checks.map(c => `<li class="${c.ok ? "y" : "n"}">${esc(c.label)}</li>`).join("")}</ul>
+    ${(x.news || []).length ? `<div class="h">Berita terbaru</div><div class="list">${x.news.map(newsItem).join("")}</div>` : ""}
     <p class="muted">Asing kemarin ${rpS(x.fnet_val)} · 5 hari ${rpS(x.fnet5)} · RVOL ${x.rvol == null ? "—" : fmt1(x.rvol, 2) + "×"}</p>
     <button class="btn ghost full" data-close>Tutup</button>`);
 }
+document.addEventListener("click", e => { const b = e.target.closest("[data-newsof]"); if (b) { e.stopPropagation(); streamCode = b.dataset.newsof; closeSheet(); go("stream"); } });
 document.addEventListener("click", e => { const b = e.target.closest("[data-bought2]"); if (b) { e.stopPropagation(); posForm(boughtPrefill(b.dataset.bought2)); } });
 function boughtPrefill(code) { const p = DT.picks.find(y => y.code === code).plan; return {ticker: code, avg: p.trigger, lots: adjLots(lots(p, .5))[0] || 1, sl: p.sl, tp: p.tp}; }
 function infoSheet(k) {
@@ -473,9 +566,10 @@ function infoSheet(k) {
   if (k === "ihsg") sheet(`<h2>IHSG: ${esc(r.status)}</h2><p>${esc(r.note || "")}</p>
     <p class="mono">${fmt1(r.close, 2)} (${pct(r.change_pct)}) · MA20 ${fmt(r.ma20)} · MA50 ${fmt(r.ma50)}</p>
     <p class="muted">Saat IHSG turun, lot dibuat 0. Saat waspada, lot dipotong setengah.</p><button class="btn ghost full" data-close>Tutup</button>`);
-  if (k === "rem") sheet(`<h2>Rem rugi mingguan</h2>
-    <div class="kpis"><div class="kpi"><span>Hasil minggu ini</span><b class="${cls(br.pl)}">${rp(br.pl)}</b></div><div class="kpi"><span>Batas rugi</span><b>Rp${fmt(br.limit)}</b></div></div>
-    <p class="muted">Dihitung dari Jurnal sejak Senin. Batas ${fmt1(s.week)}% modal, bisa diubah di Pengaturan. Jika tercapai, semua saran lot jadi 0 sampai Senin.</p>
+  if (k === "rem") sheet(`<h2>Rem rugi</h2>
+    <div class="kpis"><div class="kpi"><span>Hasil minggu ini</span><b class="${cls(br.pl)}">${rp(br.pl)}</b></div><div class="kpi"><span>Batas rugi mingguan</span><b>Rp${fmt(br.limit)}</b></div>
+      <div class="kpi"><span>Transaksi hari ini</span><b>${daily().opened} / ${s.maxTrades}</b></div><div class="kpi"><span>Rugi hari ini</span><b>${daily().losses} / ${s.maxLoss}</b></div></div>
+    <p class="muted">Mingguan dihitung dari Jurnal sejak Senin (${fmt1(s.week)}% modal). Batas harian: maks ${s.maxTrades} transaksi atau ${s.maxLoss}× rugi. Jika salah satu tercapai, semua saran lot jadi 0. Atur di Pengaturan.</p>
     <button class="btn ghost full" data-close>Tutup</button>`);
   if (k === "uji") {
     if (!t) return sheet(`<h2>Uji strategi</h2><p>Belum ada hasil.</p><button class="btn ghost full" data-close>Tutup</button>`);
@@ -501,6 +595,7 @@ function renderPositions() {
       <div class="top"><span class="code">${esc(p.ticker)}</span><span class="tag ${st.tag}">${st.label}</span>
         <span class="px">${fmt(px)}</span><span class="chg ${cls(plp)}">${pct(plp)}</span></div>
       <div class="muted" style="margin-top:6px">${esc(st.note)} · ${rp(pl)}</div>
+      ${(p.violations || []).length ? `<div class="flags"><span class="flag block">Dicatat dengan ${p.violations.length} pelanggaran aturan</span></div>` : ""}
       <div class="levels">
         <div><span>Beli</span><b>${fmt(p.avg)}</b></div><div><span>Lot</span><b>${p.lots}</b></div>
         <div><span>Stop loss</span><b class="down">${fmt(p.sl)}</b></div><div><span>Take profit</span><b class="up">${fmt(p.tp)}</b></div>
@@ -511,9 +606,32 @@ function renderPositions() {
   }).join("");
   $$("[data-del-pos]").forEach(b => b.onclick = () => { if (!confirm("Hapus posisi ini tanpa mencatat ke jurnal?")) return; const a = getPos(); a.splice(+b.dataset.delPos, 1); setPos(a); renderAll(); });
   $$("[data-close-pos]").forEach(b => b.onclick = () => { const i = +b.dataset.closePos, p = getPos()[i], st = posStatus(p);
-    jForm({ticker: p.ticker, buy: p.avg, lots: p.lots, sell: st.price ? Math.round(st.price) : "", closeIdx: i}); });
+    jForm({ticker: p.ticker, buy: p.avg, lots: p.lots, sell: st.price ? Math.round(st.price) : "", closeIdx: i,
+      openedAt: p.at, violations: p.violations || []}); });
 }
 $("#addPos").onclick = () => posForm({});
+function gateCheck(p) {
+  // aturan yang harus dipenuhi sebelum mencatat pembelian
+  const v = [], r = regime(), br = brake(), dl = daily();
+  const pick = DT && DT.picks.find(x => x.code === p.ticker);
+  const sig = SIG && SIG.signals.find(x => x.ticker === p.ticker);
+  const fl = (pick && pick.flags) || (sig && sig.flags) || [];
+  if (!(p.sl > 0 && p.sl < p.avg)) v.push("Stop loss belum diisi atau tidak di bawah harga beli");
+  if (!(p.tp > p.avg)) v.push("Take profit tidak di atas harga beli");
+  if (br.stop) v.push("Rem rugi mingguan sedang aktif");
+  if (dl.stop) v.push("Batas harian tercapai: " + dl.why.join(", "));
+  if (r.level === "bad") v.push("IHSG sedang turun");
+  if (fl.some(f => f.block)) v.push("Saham punya penanda risiko BEI: " + fl.filter(f => f.block).map(f => f.text).join("; "));
+  if (pick) {
+    const sug = adjLots(lots(pick.plan, .5))[0];
+    if (sug > 0 && p.lots > sug) v.push(`Lot ${p.lots} melebihi saran ${sug} lot`);
+    if (DT.stops && DT.stops.length) v.push("Dashboard menyarankan tidak trading: " + DT.stops.join(", "));
+  } else if (!sig || sig.signal !== "BUY") {
+    v.push("Saham ini tidak ada di Daftar Pagi dan tidak sedang sinyal BUY");
+  }
+  if (p.sl > 0 && p.avg > 0 && (p.avg - p.sl) / p.avg > 0.08) v.push("Jarak stop loss lebih dari 8%");
+  return v;
+}
 function posForm(v) {
   sheet(`<h2>${v.ticker ? "Catat posisi " + esc(v.ticker) : "Tambah posisi"}</h2>
     <div class="fgrid">
@@ -523,13 +641,31 @@ function posForm(v) {
       <div><label class="f">Stop loss</label><input id="fS" type="number" inputmode="numeric" value="${v.sl ?? ""}"></div>
       <div><label class="f">Take profit</label><input id="fP" type="number" inputmode="numeric" value="${v.tp ?? ""}"></div>
     </div>
+    <div id="gate"></div>
     <div class="btns"><button class="btn ghost" data-close>Batal</button><button class="btn" id="fSave">Simpan</button></div>`);
+  const read = () => ({ticker: $("#fT").value.trim().toUpperCase(), avg: +$("#fA").value, lots: +$("#fL").value, sl: +$("#fS").value, tp: +$("#fP").value});
+  const paint = () => {
+    const p = read();
+    if (!p.ticker || !p.avg || !p.lots) { $("#gate").innerHTML = ""; return []; }
+    const vio = gateCheck(p);
+    $("#gate").innerHTML = vio.length ? `<div class="card" style="margin:12px 0 0;border-color:rgba(242,85,81,.45)">
+        <b class="down">Melanggar ${vio.length} aturan</b>
+        <ul class="checks">${vio.map(x => `<li class="n">${esc(x)}</li>`).join("")}</ul>
+        <label class="toggle" style="margin:8px 0 0"><input type="checkbox" id="fForce"> Saya tetap mencatat (ditandai sebagai pelanggaran di jurnal)</label></div>`
+      : `<div class="card" style="margin:12px 0 0;border-color:rgba(34,194,123,.45)"><b class="up">✓ Sesuai semua aturan</b></div>`;
+    return vio;
+  };
+  ["#fT", "#fA", "#fL", "#fS", "#fP"].forEach(s => $(s).addEventListener("input", paint));
+  paint();
   $("#fSave").onclick = () => {
-    const p = {ticker: $("#fT").value.trim().toUpperCase(), avg: +$("#fA").value, lots: +$("#fL").value, sl: +$("#fS").value, tp: +$("#fP").value, at: new Date().toISOString()};
+    const p = {...read(), at: new Date().toISOString()};
     if (!p.ticker || !p.avg || !p.lots) return toast("Isi kode, harga beli, dan lot.");
-    if (p.sl >= p.avg || p.tp <= p.avg) return toast("SL harus di bawah harga beli, TP di atasnya.");
+    if (!(p.sl > 0 && p.sl < p.avg) || !(p.tp > p.avg)) return toast("Stop loss wajib di bawah harga beli dan take profit di atasnya.");
+    const vio = gateCheck(p);
+    if (vio.length && !($("#fForce") && $("#fForce").checked)) return toast("Centang konfirmasi jika tetap ingin mencatat.");
+    p.violations = vio;
     setPos([...getPos().filter(x => x.ticker !== p.ticker), p]); closeSheet(); renderAll(); go("pos");
-    toast("Tersimpan. Pasang juga Auto Sell SL & TP di Stockbit.");
+    toast(vio.length ? "Tercatat sebagai pelanggaran aturan." : "Tersimpan. Pasang juga Auto Sell SL & TP di Stockbit.");
   };
 }
 
@@ -545,9 +681,27 @@ function renderJournal() {
   const byWhy = {}; all.forEach((t, i) => (byWhy[t.why] = byWhy[t.why] || []).push(pls[i]));
   const bad = Object.entries(byWhy).filter(([k, v]) => v.length >= 2 && v.reduce((a, b) => a + b, 0) < 0).map(([k]) => k);
   if (!tip && bad.length) tip = `Alasan masuk "${bad[0]}" terus merugi. Hentikan alasan itu.`;
-  $("#jStats").innerHTML = `<div class="kpis">
+  // laporan 7 hari terakhir
+  const wk = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+  const w7 = all.map((t, i) => ({t, pl: pls[i]})).filter(x => x.t.date >= wk);
+  let weekly = "";
+  if (w7.length) {
+    const tot = w7.reduce((a, x) => a + x.pl, 0), wins = w7.filter(x => x.pl > 0).length;
+    const byE = {}; w7.forEach(x => { const k = x.t.emo || "Tidak diisi"; (byE[k] = byE[k] || []).push(x.pl); });
+    const rows = Object.entries(byE).map(([k, v]) => ({k, n: v.length, s: v.reduce((a, b) => a + b, 0)})).sort((a, b) => a.s - b.s);
+    const vio = w7.filter(x => (x.t.violations || []).length || x.t.emo === "Melanggar aturan").length;
+    const worst = rows[0];
+    const insight = worst && worst.s < 0 && worst.k !== "Sesuai rencana" ? `Kerugian terbesar minggu ini datang dari transaksi "${worst.k}" (${rp(worst.s)}).`
+      : vio ? `${vio} transaksi melanggar aturan minggu ini.` : "Tidak ada pola kesalahan menonjol minggu ini.";
+    weekly = `<div class="card"><b>Laporan 7 hari terakhir</b>
+      <div class="kpis" style="margin:10px 0 6px"><div class="kpi"><span>Hasil</span><b class="${cls(tot)}">${rp(tot)}</b></div>
+        <div class="kpi"><span>Transaksi / menang</span><b>${w7.length} / ${wins}</b></div></div>
+      ${rows.map(r => `<div class="trow"><div>${esc(r.k)}<div class="n">${r.n} transaksi</div></div><div class="val ${cls(r.s)}">${rp(r.s)}</div></div>`).join("")}
+      <p class="${worst && worst.s < 0 && worst.k !== "Sesuai rencana" ? "amber" : "muted"}" style="margin:8px 0 0;font-size:13.5px">${esc(insight)}</p></div>`;
+  }
+  $("#jStats").innerHTML = weekly + `<div class="kpis">
       <div class="kpi"><span>Total</span><b class="${cls(total)}">${rp(total)}</b></div>
-      <div class="kpi"><span>Win rate</span><b>${fmt1(w.length / pls.length * 100)}%</b></div>
+      <div class="kpi"><span>Win rate${ti("winrate")}</span><b>${fmt1(w.length / pls.length * 100)}%</b></div>
       <div class="kpi"><span>Untung rata-rata</span><b class="up">${rp(aw)}</b></div>
       <div class="kpi"><span>Rugi rata-rata</span><b class="down">${rp(al)}</b></div></div>
     ${tip ? `<div class="card" style="border-color:rgba(233,180,64,.4)"><span class="amber">⚠ ${esc(tip)}</span></div>` : ""}`;
@@ -556,7 +710,8 @@ function renderJournal() {
     <span class="px ${cls(pl)}">${rp(pl)}</span><span class="chev">›</span></button>`).join("") + `</div>`;
   $$("[data-j]").forEach(b => b.onclick = () => { const i = +b.dataset.j, t = getJ()[i];
     sheet(`<h2>${esc(t.ticker)} · ${t.date}</h2><p class="mono">Beli ${fmt(t.buy)} → Jual ${fmt(t.sell)} · ${t.lots} lot</p>
-      <p>Hasil bersih: <b class="${cls(tradePL(t))}">${rp(tradePL(t))}</b></p><p class="muted">Alasan masuk: ${esc(t.why)}</p>
+      <p>Hasil bersih: <b class="${cls(tradePL(t))}">${rp(tradePL(t))}</b></p><p class="muted">Alasan masuk: ${esc(t.why)} · Kondisi: ${esc(t.emo || "—")}</p>
+      ${(t.violations || []).length ? `<ul class="checks">${t.violations.map(x => `<li class="n">${esc(x)}</li>`).join("")}</ul>` : ""}
       <div class="btns"><button class="btn ghost" data-close>Tutup</button><button class="btn ghost" id="jDel">Hapus</button></div>`);
     $("#jDel").onclick = () => { const a = getJ(); a.splice(i, 1); store.set("journal", a); closeSheet(); renderAll(); }; });
 }
@@ -569,11 +724,14 @@ function jForm(v) {
       <div><label class="f">Harga jual</label><input id="jS" type="number" inputmode="numeric" value="${v.sell ?? ""}"></div>
       <div><label class="f">Lot</label><input id="jL" type="number" inputmode="numeric" value="${v.lots ?? ""}"></div>
       <div><label class="f">Tanggal jual</label><input id="jD" type="date" value="${new Date().toISOString().slice(0, 10)}"></div>
-      <div class="span"><label class="f">Alasan masuk</label><select id="jW"><option>Daftar Pagi</option><option>Sinyal BUY</option><option>Radar</option><option>Rekomendasi orang lain</option><option>Ikut-ikutan / FOMO</option><option>Lainnya</option></select></div>
+      <div class="span"><label class="f">Alasan masuk</label><select id="jW"><option>Daftar Pagi</option><option>Sinyal BUY</option><option>Radar</option><option>Berita</option><option>Rekomendasi orang lain</option><option>Lainnya</option></select></div>
+      <div class="span"><label class="f">Kondisi saat masuk (jujur saja, ini untuk Anda)</label><select id="jE">
+        ${["Sesuai rencana", "FOMO / takut ketinggalan", "Balas dendam setelah rugi", "Ragu-ragu", "Melanggar aturan"].map(x => `<option ${x === (v.violations && v.violations.length ? "Melanggar aturan" : "Sesuai rencana") ? "selected" : ""}>${x}</option>`).join("")}</select></div>
     </div>
     <div class="btns"><button class="btn ghost" data-close>Batal</button><button class="btn" id="jSave">Simpan</button></div>`);
   $("#jSave").onclick = () => {
-    const t = {ticker: $("#jT").value.trim().toUpperCase(), buy: +$("#jB").value, sell: +$("#jS").value, lots: +$("#jL").value, date: $("#jD").value, why: $("#jW").value};
+    const t = {ticker: $("#jT").value.trim().toUpperCase(), buy: +$("#jB").value, sell: +$("#jS").value, lots: +$("#jL").value, date: $("#jD").value,
+      why: $("#jW").value, emo: $("#jE").value, openedAt: v.openedAt || null, violations: v.violations || []};
     if (!t.ticker || !t.buy || !t.sell || !t.lots) return toast("Lengkapi semua isian.");
     store.set("journal", [...getJ(), t]);
     if (v.closeIdx !== undefined) { const a = getPos(); a.splice(v.closeIdx, 1); setPos(a); }
@@ -622,7 +780,8 @@ function renderCheck(j, d) {
       </div>
       <button class="btn ghost full" id="saveDoc" style="margin-bottom:14px">Simpan ke Posisi dengan SL ${fmt(d.cl)}</button>`;
   }
-  h += `<div class="hero ${lvl}"><div class="k">${d ? "Tambah / beli baru" : "Beli " + j.ticker + " sekarang?"}</div><div class="v">${v}</div></div>
+  if ((j.flags || []).some(f => f.block)) { v = "JANGAN MASUK DULU"; }
+  h += `${flagsHtml(j.flags)}<div class="hero ${v.startsWith("JANGAN") ? "stop" : lvl}" style="margin-top:8px"><div class="k">${d ? "Tambah / beli baru" : "Beli " + j.ticker + " sekarang?"}</div><div class="v">${v}</div></div>
     <div class="card"><ul class="checks" style="margin:0">${en.checks.map(c => `<li class="${c.ok ? "y" : c.warn ? "p" : "n"}">${esc(c.label)}</li>`).join("")}</ul></div>
     ${j.zones ? `<div class="card">${zonesHtml(j.zones).replace('style="', 'style="margin-top:0;')}</div>` : ""}
     <button class="btn full" data-an="${j.ticker}">Analisis teknikal & fundamental ${j.ticker}</button>`;
@@ -689,10 +848,36 @@ function renderSettings() {
       <div class="span"><label class="f">Modal trading (Rp)</label><input id="sCap" type="number" inputmode="numeric" value="${s.cap}"></div>
       <div><label class="f">Risiko per transaksi (%)</label><input id="sRisk" type="number" step="0.1" value="${s.risk}"></div>
       <div><label class="f">Batas rugi/minggu (%)</label><input id="sWeek" type="number" step="0.5" value="${s.week}"></div>
+      <div><label class="f">Maks. transaksi/hari</label><input id="sMT" type="number" min="1" step="1" value="${s.maxTrades}"></div>
+      <div><label class="f">Berhenti setelah rugi (×/hari)</label><input id="sML" type="number" min="1" step="1" value="${s.maxLoss}"></div>
       <div class="span"><label class="f">Maks. 1 posisi swing (% modal)</label><input id="sMax" type="number" step="5" value="${s.maxPos}"></div>
     </div><button class="btn full" id="sSave" style="margin-top:12px">Simpan</button></div>
-    <p class="muted">Risiko 1% = jika kena stop loss, rugi ±1% modal. Semua lot dihitung dari angka ini. Tersimpan di perangkat ini saja.</p>`;
-  $("#sSave").onclick = () => { store.set("settings", {cap: +$("#sCap").value, risk: +$("#sRisk").value, week: +$("#sWeek").value, maxPos: +$("#sMax").value}); toast("Tersimpan."); renderAll(); };
+    <p class="muted">Risiko 1% = jika kena stop loss, rugi ±1% modal. Semua lot dihitung dari angka ini.</p>
+    <div class="card"><b>Cadangkan & pindah perangkat</b>
+      <p class="muted" style="margin:6px 0 10px">Posisi, jurnal, dan pengaturan tersimpan di browser perangkat ini. Unduh cadangan untuk dipindah ke HP/laptop lain atau sebelum menghapus data browser.</p>
+      <div class="btns" style="margin-top:0"><button class="btn ghost" id="bkOut">Unduh cadangan</button><label class="btn ghost" style="text-align:center">Pulihkan<input type="file" id="bkIn" accept="application/json" class="hide"></label></div></div>`;
+  $("#sSave").onclick = () => {
+    const v = {cap: +$("#sCap").value, risk: +$("#sRisk").value, week: +$("#sWeek").value, maxPos: +$("#sMax").value, maxTrades: +$("#sMT").value, maxLoss: +$("#sML").value};
+    if (!(v.cap > 0 && v.risk > 0 && v.risk <= 5 && v.week > 0 && v.maxTrades >= 1 && v.maxLoss >= 1)) return toast("Periksa isian: risiko 0–5%, angka lain harus positif.");
+    store.set("settings", v); toast("Tersimpan."); renderAll();
+  };
+  $("#bkOut").onclick = () => {
+    const data = {app: "dashboard-trading-bei", version: 1, exported_at: new Date().toISOString(),
+      settings: store.get("settings", {}), positions: getPos(), journal: getJ()};
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], {type: "application/json"}));
+    a.download = `cadangan-trading-${todayStr()}.json`; a.click(); URL.revokeObjectURL(a.href);
+  };
+  $("#bkIn").onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      const d = JSON.parse(await f.text());
+      if (d.app !== "dashboard-trading-bei" || !Array.isArray(d.positions) || !Array.isArray(d.journal)) throw new Error("bukan file cadangan dashboard ini");
+      if (!confirm(`Pulihkan ${d.positions.length} posisi dan ${d.journal.length} catatan jurnal? Data di perangkat ini akan diganti.`)) return;
+      store.set("settings", d.settings || {}); setPos(d.positions); store.set("journal", d.journal);
+      toast("Data dipulihkan."); renderAll(); renderSettings();
+    } catch (err) { toast("Gagal memulihkan: " + err.message); }
+  };
 }
 function renderGuide() {
   $("#subBody").innerHTML = `<div class="card"><b>Rutinitas harian</b>
@@ -721,13 +906,15 @@ async function renderAnalysis() {
   $("#anBody").innerHTML = `
     <div class="card stock"><div class="top"><span class="code">${a.ticker}</span><span class="muted grow" style="font-size:13px">${esc(F.name || "")}</span>
       <span class="px">${fmt(a.price)}</span><span class="chg ${cls(ch)}">${pct(ch)}</span></div>
-      <div class="muted" style="font-size:12px;margin-top:4px">Data penutupan / terakhir: ${a.date}</div></div>
+      <div class="muted" style="font-size:12px;margin-top:4px">Data penutupan / terakhir: ${a.date}</div>${flagsHtml(a.flags)}</div>
     <div id="lwc"></div>
     <div class="legend"><span><i style="background:var(--green)"></i>Area beli</span><span><i style="background:var(--red)"></i>Area jual</span>
-      <span><i style="background:var(--blue)"></i>Tembus ↑</span><span><i style="background:#ff8a3d"></i>Jebol ↓</span>
+      <span><i style="background:var(--blue)"></i>Tembus ↑</span><span><i style="background:#ff8a3d"></i>Jebol ↓</span><span>● berita</span>
       <a href="https://www.tradingview.com/chart/?symbol=IDX%3A${a.ticker}" target="_blank" rel="noopener" style="margin-left:auto;color:var(--blue)">Buka di TradingView ↗</a></div>
 
     <div class="h">Level kunci</div>
+    ${a.ar ? `<div class="card" style="padding:10px 14px"><div class="trow" style="border:0;padding:0"><div>Batas harian${ti("ara")}<div class="n">Untuk ${a.ar.for} · acuan ${fmt(a.ar.ref)}<br>${esc(a.ar.note)}</div></div>
+      <div class="val"><span class="up">ARA ${fmt(a.ar.ara)}</span> · <span class="down">ARB ${fmt(a.ar.arb)}</span></div></div></div>` : ""}
     <div class="card" style="padding:4px 14px">
       <div class="lvl"><div class="ic t-green">B</div><div class="grow"><div class="t">Area beli (support terdekat)</div>
         <div class="v">${L.buy_zone ? fmt(L.buy_zone[0]) + " – " + fmt(L.buy_zone[1]) : "—"}</div>
@@ -746,16 +933,21 @@ async function renderAnalysis() {
     </div>
 
     <div class="h">Teknikal</div>
-    <div class="card" style="padding:4px 14px">${T.items.map(i => `<div class="trow"><div>${esc(i.label)}<div class="n">${esc(i.note)}</div></div><div class="val ${i.tone}">${esc(i.value)}</div></div>`).join("")}
+    <div class="card" style="padding:4px 14px">${T.items.map(i => `<div class="trow"><div>${esc(i.label)}${TECH_TERM(i.label) ? ti(TECH_TERM(i.label)) : ""}<div class="n">${esc(i.note)}</div></div><div class="val ${i.tone}">${esc(i.value)}</div></div>`).join("")}
       <div class="trow"><div>MA20 / MA50 / MA200</div><div class="val">${fmt(T.ma20)} / ${fmt(T.ma50)} / ${T.ma200 ? fmt(T.ma200) : "—"}</div></div>
       <div class="trow"><div>Rentang 52 minggu</div><div class="val">${fmt(L.low_52w)} – ${fmt(L.high_52w)}</div></div></div>
 
     <div class="h">Fundamental</div>
     ${F.available ? `<div class="card" style="padding:4px 14px">
       ${F.verdict ? `<div class="trow"><div><b>Ringkasan</b><div class="n">${F.score} indikator bernilai baik${F.is_financial ? " · DER tidak dinilai untuk sektor keuangan" : ""}</div></div><div class="val ${F.verdict === "Kuat" ? "good" : F.verdict === "Lemah" ? "bad" : "warn"}">${F.verdict}</div></div>` : ""}
-      ${F.items.map(i => `<div class="trow"><div>${esc(i.label)}<div class="n">${esc(i.note)}</div></div><div class="val ${i.tone}">${esc(i.value)}</div></div>`).join("")}
+      ${F.items.map(i => `<div class="trow"><div>${esc(i.label)}${TECH_TERM(i.label) ? ti(TECH_TERM(i.label)) : ""}<div class="n">${esc(i.note)}</div></div><div class="val ${i.tone}">${esc(i.value)}</div></div>`).join("")}
       <div class="trow"><div class="n">Sumber: Yahoo Finance${F.as_of ? ", diambil " + F.as_of : ""}. ${esc(F.sector || "")}${F.industry ? " · " + esc(F.industry) : ""}. Cocokkan dengan laporan keuangan resmi di idx.co.id.</div></div></div>`
       : `<div class="card muted">Data fundamental ${a.ticker} tidak tersedia dari sumber data.</div>`}
+    <div class="h">Peristiwa & berita ${a.ticker}</div>
+    ${(a.events || []).length ? `<div class="card" style="padding:4px 14px">${a.events.map(e => `<div class="trow"><div>${esc(e.kind)}<div class="n">${esc(e.source)}</div></div><div class="val">${e.date}</div></div>`).join("")}</div>` : ""}
+    ${(a.news || []).length ? `<div class="list">${a.news.slice(0, 6).map(newsItem).join("")}</div>
+      <button class="btn ghost full" data-newsof="${a.ticker}" style="margin-bottom:10px">Semua berita ${a.ticker} di Stream</button>`
+      : `<div class="card muted">Belum ada berita ${a.ticker} dalam 7 hari terakhir.</div>`}
     <button class="btn ghost full" id="howCalc">Cara level dihitung</button>`;
   $("#howCalc").onclick = () => sheet(`<h2>Cara level dihitung</h2>
     <p><b>Support & resistance:</b> titik balik harga (tertinggi/terendah dalam ±5 hari) selama 180 hari bursa terakhir. Titik yang berdekatan (≤ ½ ATR) digabung menjadi satu zona. Makin sering disentuh, makin kuat.</p>
@@ -787,14 +979,136 @@ function drawChart(a) {
   line(L.breakout.level, "#5aa2ff", "Tembus ↑", 2);
   line(L.breakdown.level, "#ff8a3d", "Jebol ↓", 2);
   const n = a.ohlc.length;
+  // penanda berita di chart (tanggal terbit; berita setelah 16.00 ditempel ke hari bursa berikutnya)
+  const times = a.ohlc.map(d => d.time), marks = {};
+  (a.news || []).forEach(it => {
+    const dt = new Date(it.published), day = it.published.slice(0, 10), late = dt.getUTCHours() + 7 >= 16;
+    const t = times.find(x => late ? x > day : x >= day);
+    if (!t) return;
+    const m = marks[t] = marks[t] || {n: 0, pos: 0, neg: 0}; m.n++; if (it.tone === "positif") m.pos++; if (it.tone === "negatif") m.neg++;
+  });
+  c.setMarkers(Object.entries(marks).sort().map(([t, m]) => ({time: t, position: "aboveBar", shape: "circle",
+    color: m.pos > m.neg ? "#22c27b" : m.neg > m.pos ? "#f25551" : "#8a97a6", text: m.n > 1 ? String(m.n) : ""})));
   lwChart.timeScale().setVisibleLogicalRange({from: Math.max(0, n - 120), to: n + 3});
 }
 
+// ================= STREAM PERISTIWA =================
+let STREAM = null, streamCode = "", streamFilter = "ALL", hideRoutine = store.get("hideRoutine", true);
+function ago(iso) {
+  const m = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+  return m < 60 ? `${m} mnt lalu` : m < 1440 ? `${Math.round(m / 60)} jam lalu` : `${Math.round(m / 1440)} hari lalu`;
+}
+function newsItem(it) {
+  const r = it.reaction;
+  const react = r ? `<span class="${cls(r.move_pct)}">${pct(r.move_pct)} sejak berita</span>${r.vol_ratio ? ` · vol ${fmt1(r.vol_ratio)}×` : ""}` : "";
+  return `<div class="news">
+    <div class="meta"><span class="dot2 tone-${it.tone}" title="${it.tone}"></span><b style="color:var(--text)">${esc(it.code)}</b>
+      <span class="tag ${it.official ? "t-blue" : "t-gray"}">${esc(it.kind)}</span>${it.official ? `<span class="tag t-blue">Resmi BEI</span>` : ""}
+      <span>${ago(it.published)}</span></div>
+    <a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title)}</a>
+    <div class="meta"><span>${esc(it.source)}</span>${react ? "· " + react : ""}${r && r.priced_in ? `<span class="flag">Sudah dihargai — jangan kejar${ti("priced")}</span>` : ""}</div>
+  </div>`;
+}
+async function renderStream() {
+  const body = $("#subBody");
+  try { STREAM = await getJSON("data/stream.json"); } catch (e) { body.innerHTML = `<div class="empty">Stream belum tersedia.</div>`; return; }
+  const codes = [...new Set(STREAM.items.map(x => x.code))].sort();
+  const F = {ALL: "Semua", BEI: "Resmi BEI", positif: "Positif", negatif: "Negatif"};
+  let items = STREAM.items.filter(x => !streamCode || x.code === streamCode);
+  if (hideRoutine) items = items.filter(x => !x.routine);
+  if (streamFilter === "BEI") items = items.filter(x => x.official);
+  else if (streamFilter !== "ALL") items = items.filter(x => x.tone === streamFilter);
+  const up = STREAM.upcoming.filter(e => !streamCode || e.code === streamCode);
+  const ready = STREAM.stats.filter(s => s.ready), collecting = STREAM.stats.reduce((a, s) => a + s.n, 0);
+  body.innerHTML = `
+    <div class="card" style="padding:10px"><div class="fgrid">
+      <div><select id="stCode"><option value="">Semua saham</option>${codes.map(c => `<option ${c === streamCode ? "selected" : ""}>${c}</option>`).join("")}</select></div>
+      <div class="toggle" style="margin:0"><input type="checkbox" id="stRoutine" ${hideRoutine ? "checked" : ""}><label for="stRoutine">Sembunyikan berita rutin</label></div></div></div>
+    <div class="seg">${Object.entries(F).map(([k, l]) => `<button data-sf="${k}" class="${streamFilter === k ? "on" : ""}">${l}</button>`).join("")}</div>
+    ${up.length ? `<details class="card" ${streamCode ? "open" : ""}><summary style="cursor:pointer;font-weight:650">Kalender 10 hari ke depan (${up.length})</summary>
+      ${up.map(e => `<div class="trow"><div><b>${esc(e.code)}</b> ${esc(e.kind)}<div class="n">${esc(e.source)}</div></div><div class="val">${e.date}</div></div>`).join("")}</details>` : ""}
+    ${items.length ? `<div class="list">${items.slice(0, 80).map(newsItem).join("")}</div>`
+      : `<div class="empty">Tidak ada berita${streamCode ? " " + streamCode : ""} dengan filter ini dalam 7 hari terakhir.</div>`}
+    <div class="h">Reaksi harga per jenis peristiwa</div>
+    ${ready.length ? `<div class="card scroll" style="padding:6px 12px"><table><tr><th>Peristiwa</th><th>n</th><th>1 hari</th><th>3 hari</th><th>5 hari</th><th>Naik 5h</th></tr>
+      ${ready.map(s => `<tr><td style="font-family:inherit">${esc(s.kind)} <span class="dot2 tone-${s.tone}"></span></td><td>${s.n}</td><td class="${cls(s.r1)}">${pct(s.r1)}</td><td class="${cls(s.r3)}">${pct(s.r3)}</td><td class="${cls(s.r5)}">${pct(s.r5)}</td><td>${fmt1(s.up5)}%</td></tr>`).join("")}</table></div>`
+      : `<div class="card muted">Statistik muncul setelah tiap jenis peristiwa punya minimal ${STREAM.min_n} kejadian yang sudah lewat 5 hari bursa. Terkumpul: ${collecting} kejadian dari ${STREAM.archive_size} berita di arsip.</div>`}
+    <p class="muted">Label dan arah (positif/negatif) memakai aturan kata kunci, bukan penilaian manusia. Hanya judul yang ditampilkan; baca artikelnya di sumber asli. ${STREAM.fetched_at ? `Berita terakhir diambil ${esc(STREAM.fetched_at.slice(11, 16))} WIB.` : ""}</p>`;
+  $("#stCode").onchange = () => { streamCode = $("#stCode").value; renderStream(); };
+  $("#stRoutine").onchange = () => { hideRoutine = $("#stRoutine").checked; store.set("hideRoutine", hideRoutine); renderStream(); };
+  $$("[data-sf]").forEach(b => b.onclick = () => { streamFilter = b.dataset.sf; renderStream(); });
+}
+
+// ================= TRACK RECORD =================
+async function renderTrack() {
+  const body = $("#subBody");
+  let T;
+  try { T = await getJSON("data/track.json"); } catch (e) { body.innerHTML = `<div class="empty">Track record belum tersedia.</div>`; return; }
+  const S = T.summary || {}, f = S.followed || {}, a = S.all || {};
+  const kp = (x, lbl) => `<div class="card"><b>${lbl}</b>
+    ${x.trades ? `<div class="kpis" style="margin:10px 0 0">
+      <div class="kpi"><span>Rata-rata/transaksi</span><b class="${cls(x.avg_pct)}">${pct(x.avg_pct)}</b></div>
+      <div class="kpi"><span>Win rate${ti("winrate")}</span><b>${fmt1(x.win_rate)}%</b></div>
+      <div class="kpi"><span>Transaksi terpicu</span><b>${x.trades} / ${x.picks}</b></div>
+      <div class="kpi"><span>Total</span><b class="${cls(x.total_pct)}">${pct(x.total_pct)}</b></div></div>`
+    : `<p class="muted" style="margin:6px 0 0">Belum ada transaksi yang terpicu (${x.days || 0} hari tercatat).</p>`}</div>`;
+  const days = (T.days || []).slice().reverse();
+  const stTag = s => ({TP: "t-green", SL: "t-red", "tutup sore": "t-blue"}[s] || "t-gray");
+  body.innerHTML = `<p class="muted" style="margin:0 0 10px">Daftar Pagi disimpan sebelum hari perdagangan, lalu dinilai dengan harga sebenarnya.${ti("track")} Dimulai ${S.first_date || "hari ini"}. Butuh beberapa minggu sebelum angkanya bermakna.</p>
+    ${kp(f, "Hari ketika dashboard bilang BOLEH trading")}
+    ${kp(a, "Semua hari (termasuk saat dashboard bilang jangan)")}
+    <div class="h">Riwayat harian</div>
+    ${days.length ? days.map(d => `<div class="card">
+      <div class="row"><b class="grow">${d.target}</b>${d.pending ? `<span class="tag t-gray">menunggu</span>` : d.would_trade ? `<span class="tag t-green">boleh trading</span>` : `<span class="tag t-red">jangan trading</span>`}</div>
+      ${!d.would_trade && (d.stops || []).length ? `<div class="muted" style="font-size:12.5px;margin-top:4px">${esc(d.stops.join(" · "))}</div>` : ""}
+      ${d.picks.length ? `<div class="list" style="margin:10px 0 0">${d.picks.map(p => {
+          const r = p.result || {};
+          return `<div class="li" style="cursor:default"><span class="code">${esc(p.code)}</span><span class="muted grow">beli ≥ ${fmt(p.plan.trigger)}</span>
+            ${d.pending ? `<span class="tag t-gray">menunggu</span>` : `<span class="tag ${stTag(r.status)}">${esc(r.status || "—")}</span>`}
+            <span class="chg ${cls(r.net_pct)}">${r.net_pct != null ? pct(r.net_pct) : ""}</span></div>`; }).join("")}</div>`
+        : `<p class="muted" style="margin:6px 0 0">Tidak ada saham di daftar.</p>`}</div>`).join("")
+      : `<div class="empty">Belum ada catatan. Daftar Pagi pertama tersimpan otomatis pada run berikutnya.</div>`}`;
+}
+
+// ================= TUR SINGKAT =================
+const TOUR = [
+  {sel: "#menuBtn", text: "Ini tombol menu. Tekan untuk membuka atau menyembunyikan daftar semua halaman."},
+  {sel: "#hero", text: "Kesimpulan hari ini. Jika tertulis \"Jangan trading\", lebih baik tidak membeli apa pun hari ini."},
+  {sel: "#tiles", text: "Tiga pengaman: kondisi IHSG, rem rugi Anda, dan hasil uji strategi. Tekan salah satunya untuk penjelasan."},
+  {sel: "#picks", text: "Saham Daftar Pagi. Tekan \"Cara pasang\" untuk langkah Auto Buy di Stockbit, dan ⓘ untuk arti setiap istilah."},
+  {sel: "#bell", text: "Aktifkan alert agar HP berbunyi saat ada sinyal atau posisi Anda perlu dijual (selama halaman terbuka)."},
+];
+function startTour(i = 0) {
+  $$(".tour-hl,.tour-box").forEach(e => e.remove());
+  let step = TOUR[i];
+  while (step && (!$(step.sel) || !$(step.sel).getBoundingClientRect().height)) step = TOUR[++i];
+  if (!step) { store.set("tourDone", true); return; }
+  const el = $(step.sel);
+  el.scrollIntoView({block: "center"});
+  setTimeout(() => {
+    const r = el.getBoundingClientRect(), pad = 6;
+    const hl = document.createElement("div"); hl.className = "tour-hl";
+    Object.assign(hl.style, {left: r.left - pad + "px", top: r.top - pad + "px", width: r.width + pad * 2 + "px", height: Math.min(r.height, innerHeight * .5) + pad * 2 + "px"});
+    const box = document.createElement("div"); box.className = "tour-box";
+    const below = r.top + Math.min(r.height, innerHeight * .5) + 180 < innerHeight;
+    box.style.top = below ? Math.min(r.top + Math.min(r.height, innerHeight * .5) + 16, innerHeight - 170) + "px" : "auto";
+    box.style.bottom = below ? "auto" : "16px";
+    box.innerHTML = `<div class="muted">Langkah ${i + 1} dari ${TOUR.length}</div><p>${step.text}</p>
+      <div class="btns" style="margin:0"><button class="btn ghost sm" id="tourSkip">Lewati</button><button class="btn sm" id="tourNext">${i + 1 < TOUR.length ? "Lanjut" : "Selesai"}</button></div>`;
+    document.body.append(hl, box);
+    $("#tourSkip").onclick = () => { $$(".tour-hl,.tour-box").forEach(e => e.remove()); store.set("tourDone", true); };
+    $("#tourNext").onclick = () => startTour(i + 1);
+  }, 250);
+}
+
 function renderHelp() {
-  $("#subBody").innerHTML = `<p class="muted" style="margin:0 0 10px">Tekan tombol ☰ di kiri atas untuk membuka atau menyembunyikan menu.</p>
-    <div class="card"><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M17 4v16"/><rect x="4" y="8" width="6" height="7" rx="1"/><rect x="14" y="6" width="6" height="9" rx="1"/></svg></div><div><b>Analisis Saham</b><span class="muted" style="font-size:14px;color:#cdd6df">Chart dengan area beli, area jual, garis tembus ke atas dan jebol ke bawah, ditambah ringkasan teknikal dan fundamental. Semua level dihitung dari titik balik harga yang benar-benar terjadi.</span><div class="when">Kapan: sebelum membeli, dan untuk menentukan batas jual saham yang Anda pegang.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg></div><div><b>Hari Ini</b><span class="muted" style="font-size:14px;color:#cdd6df">Halaman utama. Satu kesimpulan: boleh trading atau tidak hari ini, plus daftar saham day trade lengkap dengan harga Beli, Stop loss, Take profit, dan jumlah Lot.</span><div class="when">Kapan: Buka setiap pagi sebelum 08.45.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></div><div><b>Posisi Saya</b><span class="muted" style="font-size:14px;color:#cdd6df">Daftar saham yang sedang Anda pegang. Statusnya berubah menjadi JUAL saat harga kena stop loss, mencapai take profit, atau muncul sinyal jual.</span><div class="when">Kapan: Buka saat istirahat dan sebelum 15.45.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div><div><b>Cek Saham</b><span class="muted" style="font-size:14px;color:#cdd6df">Periksa satu saham: layak dibeli atau tidak. Isi harga beli Anda untuk melihat kondisi posisi dan batas jual (cut loss).</span><div class="when">Kapan: Sebelum membeli, atau saat posisi sedang minus.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12a4 4 0 014 4v12H8a4 4 0 01-4-4z"/><path d="M8 9h8M8 13h6"/></svg></div><div><b>Jurnal</b><span class="muted" style="font-size:14px;color:#cdd6df">Catatan transaksi yang sudah selesai. Menghitung untung/rugi, win rate, dan menunjukkan kebiasaan yang membuat rugi. Juga dipakai untuk rem rugi mingguan.</span><div class="when">Kapan: Setiap kali selesai menjual saham.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 4 8-9"/><path d="M14 6h6v6"/></svg></div><div><b>Sinyal Watchlist</b><span class="muted" style="font-size:14px;color:#cdd6df">Sinyal BUY/SELL untuk saham pilihan di watchlist, diperbarui saat bursa buka.</span><div class="when">Kapan: Untuk melihat saham besar di luar Daftar Pagi.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12l6-6"/></svg></div><div><b>Radar Swing</b><span class="muted" style="font-size:14px;color:#cdd6df">Saham dengan pola akumulasi sebelum naik, untuk disimpan beberapa hari (swing), bukan day trade.</span><div class="when">Kapan: Jika ingin trading jangka beberapa hari.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg></div><div><b>Hasil Uji Strategi</b><span class="muted" style="font-size:14px;color:#cdd6df">Hasil jika aturan dashboard dijalankan di masa lalu: rata-rata untung/rugi per transaksi dan win rate.</span><div class="when">Kapan: Sebelum memakai uang sungguhan, dan cek ulang tiap minggu.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></div><div><b>Pengaturan</b><span class="muted" style="font-size:14px;color:#cdd6df">Isi modal, risiko per transaksi, dan batas rugi mingguan. Semua jumlah lot dihitung dari sini.</span><div class="when">Kapan: Sekali di awal, lalu saat modal berubah.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h7a3 3 0 013 3v13a2 2 0 00-2-2H2zM22 4h-7a3 3 0 00-3 3v13a2 2 0 012-2h8z"/></svg></div><div><b>Panduan Harian</b><span class="muted" style="font-size:14px;color:#cdd6df">Urutan kerja harian dengan Stockbit dan cara cek bandar secara manual.</span><div class="when">Kapan: Saat baru mulai memakai dashboard.</div></div></div></div>
+  $("#subBody").innerHTML = `<p class="muted" style="margin:0 0 10px">Tekan tombol ☰ di kiri atas untuk membuka atau menyembunyikan menu. Tekan ⓘ di samping istilah untuk penjelasannya.</p>
+    <button class="btn full" id="tourAgain" style="margin-bottom:10px">Mulai tur singkat</button>
+    <div class="card"><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M17 4v16"/><rect x="4" y="8" width="6" height="7" rx="1"/><rect x="14" y="6" width="6" height="9" rx="1"/></svg></div><div><b>Analisis Saham</b><span class="muted" style="font-size:14px;color:#cdd6df">Chart dengan area beli, area jual, garis tembus ke atas dan jebol ke bawah, ditambah ringkasan teknikal dan fundamental. Semua level dihitung dari titik balik harga yang benar-benar terjadi.</span><div class="when">Kapan: sebelum membeli, dan untuk menentukan batas jual saham yang Anda pegang.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h13"/><circle cx="19" cy="12" r="2"/></svg></div><div><b>Stream Peristiwa</b><span class="muted" style="font-size:14px;color:#cdd6df">Berita, keterbukaan informasi BEI, dan kalender peristiwa (dividen, laporan keuangan, RUPS) untuk saham yang dipantau. Setiap berita menunjukkan reaksi harga sejak terbit; yang sudah bergerak ≥5% ditandai "sudah dihargai — jangan kejar".</span><div class="when">Kapan: untuk tahu alasan saham naik/turun, dan menghindari saham dengan peristiwa besar di hari trading.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2h9"/></svg></div><div><b>Track Record</b><span class="muted" style="font-size:14px;color:#cdd6df">Bukti nyata: Daftar Pagi disimpan sebelum hari perdagangan, lalu dinilai dengan harga sebenarnya. Menunjukkan apakah dashboard benar-benar menghasilkan di pasar, bukan hanya di simulasi.</span><div class="when">Kapan: cek tiap minggu. Pakai uang sungguhan hanya bila hasilnya positif dalam beberapa minggu.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg></div><div><b>Hari Ini</b><span class="muted" style="font-size:14px;color:#cdd6df">Halaman utama. Satu kesimpulan: boleh trading atau tidak hari ini, plus daftar saham day trade lengkap dengan harga Beli, Stop loss, Take profit, dan jumlah Lot.</span><div class="when">Kapan: Buka setiap pagi sebelum 08.45.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></div><div><b>Posisi Saya</b><span class="muted" style="font-size:14px;color:#cdd6df">Daftar saham yang sedang Anda pegang. Statusnya berubah menjadi JUAL saat harga kena stop loss, mencapai take profit, atau muncul sinyal jual.</span><div class="when">Kapan: Buka saat istirahat dan sebelum 15.45.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div><div><b>Cek Saham</b><span class="muted" style="font-size:14px;color:#cdd6df">Periksa satu saham: layak dibeli atau tidak. Isi harga beli Anda untuk melihat kondisi posisi dan batas jual (cut loss).</span><div class="when">Kapan: Sebelum membeli, atau saat posisi sedang minus.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12a4 4 0 014 4v12H8a4 4 0 01-4-4z"/><path d="M8 9h8M8 13h6"/></svg></div><div><b>Jurnal</b><span class="muted" style="font-size:14px;color:#cdd6df">Catatan transaksi yang sudah selesai. Menghitung untung/rugi, win rate, dan menunjukkan kebiasaan yang membuat rugi. Juga dipakai untuk rem rugi mingguan.</span><div class="when">Kapan: Setiap kali selesai menjual saham.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 4 8-9"/><path d="M14 6h6v6"/></svg></div><div><b>Sinyal Watchlist</b><span class="muted" style="font-size:14px;color:#cdd6df">Sinyal BUY/SELL untuk saham pilihan di watchlist, diperbarui saat bursa buka.</span><div class="when">Kapan: Untuk melihat saham besar di luar Daftar Pagi.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12l6-6"/></svg></div><div><b>Radar Swing</b><span class="muted" style="font-size:14px;color:#cdd6df">Saham dengan pola akumulasi sebelum naik, untuk disimpan beberapa hari (swing), bukan day trade.</span><div class="when">Kapan: Jika ingin trading jangka beberapa hari.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg></div><div><b>Hasil Uji Strategi</b><span class="muted" style="font-size:14px;color:#cdd6df">Hasil jika aturan dashboard dijalankan di masa lalu: rata-rata untung/rugi per transaksi dan win rate.</span><div class="when">Kapan: Sebelum memakai uang sungguhan, dan cek ulang tiap minggu.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></div><div><b>Pengaturan</b><span class="muted" style="font-size:14px;color:#cdd6df">Isi modal, risiko per transaksi, dan batas rugi mingguan. Semua jumlah lot dihitung dari sini.</span><div class="when">Kapan: Sekali di awal, lalu saat modal berubah.</div></div></div><div class="help-item"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h7a3 3 0 013 3v13a2 2 0 00-2-2H2zM22 4h-7a3 3 0 00-3 3v13a2 2 0 012-2h8z"/></svg></div><div><b>Panduan Harian</b><span class="muted" style="font-size:14px;color:#cdd6df">Urutan kerja harian dengan Stockbit dan cara cek bandar secara manual.</span><div class="when">Kapan: Saat baru mulai memakai dashboard.</div></div></div></div>
     <div class="card"><b>Arti warna</b>
-      <div class="reasons" style="margin-top:8px"><span class="tag t-green">Aman / untung</span><span class="tag t-amber">Hati-hati</span><span class="tag t-red">Stop / rugi</span><span class="tag t-blue">Informasi</span></div></div>`;
+      <div class="reasons" style="margin-top:8px"><span class="tag t-green">Aman / untung</span><span class="tag t-amber">Hati-hati</span><span class="tag t-red">Stop / rugi</span><span class="tag t-blue">Informasi</span></div>
+      <div class="flags"><span class="flag block">⛔ Penanda risiko yang memblokir pembelian</span><span class="flag">⚠ Penanda yang perlu diperhatikan</span></div></div>`;
+  $("#tourAgain").onclick = () => { go("today"); setTimeout(startTour, 250); };
 }
 
 // ================= chart TradingView =================
@@ -814,10 +1128,11 @@ function openChart(code) {
 }
 document.addEventListener("click", e => { const b = e.target.closest("[data-chart]"); if (b) { e.stopPropagation(); openChart(b.dataset.chart); } });
 
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 paintBell();
 setSidebar(isDesk() ? store.get("sbOpen", true) : false);
 go("today");
-load();
+load().then(() => { if (!store.get("tourDone", false)) setTimeout(startTour, 600); });
 </script>
 </body>
 </html>

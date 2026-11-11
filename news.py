@@ -29,18 +29,25 @@ GNEWS = "https://news.google.com/rss/search?q={q}&hl=id&gl=ID&ceid=ID:id"
 EVENT_RULES = [
     ("Suspensi/UMA", r"suspen|gembok|unusual market activity|\bUMA\b|penghentian sementara"),
     ("PKPU/Pailit", r"\bPKPU\b|pailit|gagal bayar|default|restrukturisasi utang"),
+    ("Aksi korporasi", r"rights? issue|\bHMETD\b|private placement|stock split|pemecahan saham|reverse stock|tender offer|go private|delisting"),
     ("Dividen", r"dividen|cum date|ex date|\bcum\b"),
+    ("Buyback", r"buyback|buy back|pembelian kembali"),
+    ("Akuisisi/Merger", r"akuisisi|caplok|merger|penggabungan|divestasi|ambil alih|kuasai penuh"),
     ("Laporan keuangan", r"laba|rugi bersih|kinerja|kuartal|semester|pendapatan|laporan keuangan|\bQ[1-4]\b|9M|1H|net profit|earnings"),
-    ("Aksi korporasi", r"rights issue|\bHMETD\b|private placement|stock split|pemecahan saham|reverse stock|tender offer|go private|delisting"),
-    ("Buyback", r"buyback|pembelian kembali"),
-    ("Akuisisi/Merger", r"akuisisi|caplok|merger|penggabungan|divestasi|ambil alih|aksi beli saham"),
     ("Kontrak/Ekspansi", r"kontrak|proyek|tender|ekspansi|pabrik baru|kerja sama|kerjasama|MoU|order baru"),
     ("RUPS", r"\bRUPS\b|rapat umum pemegang saham"),
-    ("Kepemilikan", r"borong|lepas saham|jual saham|tambah kepemilikan|kurangi kepemilikan|pengendali|investor asing"),
-    ("Rekomendasi analis", r"target harga|rekomendasi|analis|\bbuy\b|\bhold\b|\bsell\b|outperform|underperform"),
+    ("Kepemilikan", r"borong|lepas saham|jual saham|tambah kepemilikan|kurangi kepemilikan|pengendali|investor asing|kepemilikan saham"),
+    ("Rekomendasi analis", r"target harga|rekomendasi|analis|outperform|underperform|\bTP\b|proyeksikan"),
+    ("Pergerakan harga", r"harga saham .*hari ini|dibuka (menguat|melemah)|ditutup (menguat|melemah)|zona (hijau|merah)|"
+                         r"sesi i\b|top gainers|top losers|jenuh (beli|jual)|\bIHSG\b"),
 ]
-POS = r"naik|melonjak|melesat|menguat|tumbuh|meningkat|rekor|laba bersih naik|untung|jumbo|kontrak baru|ekspansi|buyback|borong|terbang|\bARA\b|outperform|upgrade"
-NEG = r"turun|anjlok|melemah|merosot|rugi|tekor|gagal bayar|PKPU|pailit|suspen|gembok|terjun|ambles|\bARB\b|lepas saham|downgrade|underperform|penurunan"
+ROUTINE = {"Pergerakan harga", "Umum"}  # disembunyikan secara bawaan di Stream
+POS = (r"naik|melonjak|melesat|menguat|tumbuh|meningkat|rekor|cetak laba|untung|jumbo|kontrak baru|ekspansi|buyback|"
+       r"borong|terbang|\bARA\b|outperform|upgrade|moncer|melambung|menanjak|bullish|positif|kenaikan|surplus|cuan|"
+       r"kinclong|ciamik|perkuat|akselerasi")
+NEG = (r"turun|anjlok|melemah|merosot|rugi|tekor|gagal bayar|PKPU|pailit|suspen|gembok|terjun|ambles|\bARB\b|"
+       r"lepas saham|downgrade|underperform|penurunan|bearish|negatif|koreksi|tertekan|longsor|jeblok|rontok|defisit|"
+       r"gugatan|sanksi|boncos|merah|ambruk|terkoreksi")
 
 
 def label(title: str) -> tuple[str, str]:
@@ -183,6 +190,7 @@ def enrich(items: list[dict], frames: dict[str, pd.DataFrame]) -> list[dict]:
         it = dict(it)
         it["id"] = _id(it["code"], _norm(it["title"])[:80])
         it["kind"], it["tone"] = label(it["title"])
+        it["routine"] = it["kind"] in ROUTINE
         it["reaction"] = reaction(frames.get(it["code"]), it["published"])
         out.append(it)
     return sorted(out, key=lambda x: x["published"], reverse=True)
@@ -230,7 +238,10 @@ def event_stats(archive: dict, frames: dict[str, pd.DataFrame], min_n: int = 10)
             continue
         ref = float(before["Close"].iloc[-1])
         r = {h: (float(after["Close"].iloc[h - 1]) / ref - 1) * 100 for h in (1, 3, 5)}
-        rows.append({"kind": a["kind"], "tone": a["tone"], **{f"r{h}": v for h, v in r.items()}})
+        kind, tone = label(a["title"])  # label dihitung ulang agar perbaikan aturan berlaku ke arsip lama
+        if kind in ROUTINE:
+            continue
+        rows.append({"kind": kind, "tone": tone, **{f"r{h}": v for h, v in r.items()}})
     if not rows:
         return []
     t = pd.DataFrame(rows)

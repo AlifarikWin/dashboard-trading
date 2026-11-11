@@ -78,6 +78,11 @@ def test_idx_flags():
     ("WIKA ajukan PKPU", "PKPU/Pailit", "negatif"),
     ("ASII teken kontrak baru proyek tol", "Kontrak/Ekspansi", "positif"),
     ("Jadwal RUPS BMRI pekan ini", "RUPS", "netral"),
+    ("BRIS Right Issue 6,8 Miliar Saham Baru, Cek Profil hingga Kinerja Terbarunya", "Aksi korporasi", "netral"),
+    ("Indo Tambangraya (ITMG) Cetak Laba Rp2,93 Triliun hingga September 2026", "Laporan keuangan", "positif"),
+    ("AKRA Kuasai Penuh SPBU BP-AKR, KISI Sekuritas Proyeksikan Margin Tinggi Mulai 2027", "Akuisisi/Merger", "netral"),
+    ("Saham ANTM terkoreksi, asing lepas saham", "Kepemilikan", "negatif"),
+    ("Harga Saham PTBA Hari Ini, Selasa 10 November 2026", "Pergerakan harga", "netral"),
 ])
 def test_news_labels(title, kind, tone):
     assert news.label(title) == (kind, tone)

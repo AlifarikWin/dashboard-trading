@@ -8,7 +8,7 @@
 
 Dirancang untuk *day trader* yang bekerja 08.00–17.00. Semua keputusan dibuat **sebelum pasar buka**, dan eksekusinya lewat Auto Order Stockbit.
 
-**Sumber data:** ringkasan perdagangan harian resmi BEI (`GetStockSummary`) untuk **seluruh saham**, termasuk *foreign buy/sell*. Data hari ini terbit setelah pasar tutup. Sekitar 90 hari bursa terakhir disimpan di `cache/idx/`, sehingga setelah unduhan pertama hanya hari baru yang diambil.
+**Sumber data:** ringkasan perdagangan harian resmi BEI (`GetStockSummary`) untuk **seluruh saham**, termasuk *foreign buy/sell*. Situs BEI menolak *server cloud* (HTTP 403), jadi data ini diambil oleh **laptop Anda** lewat *self-hosted runner* (lihat "Data BEI lewat laptop"). Selama data laptop belum ada, Daftar Pagi memakai data Yahoo untuk saham *watchlist* (tanpa data asing).
 
 **Skor 0–100 per saham** (dihitung dari hari bursa terakhir):
 
@@ -52,10 +52,38 @@ Pemisahan latih dan uji ini mencegah setelan yang hanya "kebetulan cocok" dengan
 Parameter day trade diatur di `config.json` bagian `daytrade`. Isi `"auto_tune": false` untuk mematikan penyetelan otomatis.
 
 ## Menu lain
-- **Posisi:** pantau saham yang dipegang, dengan status SELL saat kena SL/TP atau muncul sinyal teknikal SELL.
-- **Cek Saham:** daftar cek sebelum membeli dan kondisi posisi yang sedang dipegang.
-- **Jurnal & rem rugi:** statistik kesalahan dan penghentian *entry* saat batas rugi mingguan tercapai.
-- **Lainnya:** Radar Akumulasi (*swing*), Sinyal BUY/SELL *watchlist*, Backtest *swing*, Pengaturan & Kondisi Pasar, dan Panduan.
+- **Posisi Saya:** pantau saham yang dipegang, dengan status JUAL saat kena SL/TP atau muncul sinyal teknikal SELL.
+- **Cek Saham:** daftar cek sebelum membeli. Jawabannya otomatis "JANGAN MASUK DULU" jika saham punya penanda risiko BEI.
+- **Jurnal:** catatan transaksi beserta kondisi saat masuk (tenang, FOMO, balas dendam, dan sebagainya) dan laporan 7 hari terakhir per kondisi.
+- **Analisis Saham:** *chart* dengan area beli/jual, level tembus/jebol, batas ARA/ARB besok, kalender peristiwa, berita terbaru (ditandai titik di *chart*), teknikal, dan fundamental.
+- **Stream Peristiwa:** berita dan keterbukaan informasi BEI untuk saham yang dipantau, lengkap dengan reaksi harga sejak berita terbit dan statistik reaksi per jenis peristiwa.
+- **Track Record:** Daftar Pagi disimpan sebelum hari perdagangan, lalu dinilai dengan harga sebenarnya.
+- **Lainnya:** Sinyal *watchlist*, Radar *swing*, Hasil Uji Strategi, Pengaturan, Panduan Harian, dan Fungsi Menu (berisi tombol tur singkat).
+
+Setiap istilah teknis punya tombol ⓘ untuk penjelasan singkat. *Dashboard* bisa dipasang di layar utama HP (menu *browser* → *Add to Home screen*) dan tetap bisa dibuka saat offline dengan data terakhir.
+
+### Penanda risiko dari BEI
+Diambil dari data *screener* dan suspensi BEI (lewat laptop). Penanda yang **memblokir** saham dari Daftar Pagi dan mengubah BUY menjadi WATCH:
+- notasi khusus apa pun (termasuk sistem notasi baru sejak 3 Agustus 2026 dan Papan Pemantauan Khusus/X),
+- UMA dalam 14 hari terakhir,
+- status pencatatan tidak aktif,
+- suspensi dalam 7 hari terakhir (kecuali pengumuman pembukaan suspensi).
+
+Aksi korporasi dan peristiwa dalam 2 hari bursa ditampilkan sebagai peringatan tanpa memblokir.
+
+### Batas ARA/ARB
+Dihitung untuk hari bursa berikutnya dari harga penutupan, dengan aturan yang berlaku sesuai tanggal:
+- **20 Oktober–31 Desember 2026:** Rp1–10: Rp1; Rp11–14: ARA 35%, ARB Rp1; Rp15–200: ARA 35%, ARB 7%; >Rp200–5.000: ARA 25%, ARB 7%; >Rp5.000: ARA 20%, ARB 7%.
+- **Mulai 1 Januari 2027:** simetris 35%/25%/20% sesuai rentang harga.
+
+Kartu Daftar Pagi memberi peringatan jika TP di atas ARA atau SL di bawah ARB. Aturan Papan Akselerasi dan Papan Pemantauan Khusus berbeda dan belum dihitung; saham di papan tersebut sudah diblokir oleh penanda notasi. Periksa kembali pengumuman BEI bila ada perubahan aturan.
+
+### Pengaman tambahan
+- **Tren mingguan:** BUY harian diturunkan menjadi WATCH jika tren mingguan turun. Perhitungannya hanya memakai data yang sudah ada pada hari itu (tanpa melihat masa depan).
+- **Kekuatan relatif:** setiap saham dibandingkan dengan IHSG (20 dan 60 hari) dan rata-rata sektornya. Penyetelan otomatis juga menguji apakah menyaring saham yang lebih lemah dari IHSG memperbaiki hasil.
+- **Validasi data:** baris harga nol/kosong dibuang; lonjakan >40% dalam 90 hari terakhir atau data basi >3 hari bursa membuat saham dikeluarkan dari perhitungan hari itu.
+- **Gerbang sebelum beli:** saat mencatat posisi, *dashboard* menampilkan aturan yang dilanggar (SL kosong, IHSG turun, lot melebihi saran, penanda risiko, batas harian). Posisi tetap bisa dicatat dengan centang khusus, dan pelanggarannya tercatat di jurnal.
+- **Batas harian:** maksimal transaksi per hari (bawaan 3) dan berhenti setelah sejumlah rugi di hari yang sama (bawaan 2). Bisa diubah di Pengaturan.
 
 ### Radar akumulasi: enam ciri
 1. **Tren naik** (20 poin): harga di atas MA50, dan MA50 menanjak.
@@ -110,6 +138,25 @@ Jadwal bawaan GitHub Actions sering terlambat atau dilewati, terutama di reposit
 
 Respons sukses dari GitHub adalah **HTTP 204**.
 
+### Notifikasi HP lewat ntfy (gratis, tanpa akun)
+Notifikasi dikirim saat Daftar Pagi siap, saat saham Daftar Pagi terpicu/kena TP/kena SL, saat data laptop lebih dari 2 hari tidak masuk, dan saat pembaruan gagal.
+1. Pasang aplikasi **ntfy** (Play Store/App Store).
+2. Pilih nama topik yang sulit ditebak, misalnya `trading-ali-<angka acak 8 digit>`. Siapa pun yang tahu nama topik bisa membaca notifikasinya.
+3. Di aplikasi ntfy, *Subscribe to topic* dengan nama tersebut.
+4. Di GitHub: *Settings → Secrets and variables → Actions → New repository secret*. Nama: `NTFY_TOPIC`, isi: nama topik.
+
+### Data BEI lewat laptop (self-hosted runner)
+Situs BEI menolak *server* GitHub, jadi data resmi BEI (ringkasan harian, asing, notasi, suspensi, kalender, keterbukaan informasi) diambil dari laptop Anda, lalu disimpan ke *branch* `records`.
+1. Pasang **Python 3.12** dan **Git** di laptop.
+2. Di GitHub: *Settings → Actions → Runners → New self-hosted runner*. Pilih OS laptop, lalu jalankan perintah yang ditampilkan (unduh, `config`, lalu `run`).
+3. Agar berjalan otomatis setelah laptop menyala, pasang sebagai *service*: Windows: jawab **Y** saat `config.cmd` menanyakan *run as service*; Linux/macOS: `sudo ./svc.sh install && sudo ./svc.sh start`.
+4. Uji sekali: tab *Actions → data-bei-laptop → Run workflow*.
+
+Jadwalnya 17.52 WIB Senin–Jumat. Jika laptop mati pada jam itu, *job* menunggu dan berjalan begitu laptop menyala (maksimal 24 jam). Setelah data masuk, *workflow* `dashboard` dipicu otomatis.
+
+### Penyimpanan permanen
+Data yang perlu bertahan antar-*run* (Track Record, arsip berita, kalender, fundamental, hasil penyetelan, data BEI dari laptop) disimpan di *branch* `records`. Jangan hapus *branch* ini.
+
 ### Menjalankan di komputer sendiri (opsional)
 ```bash
 pip install -r requirements.txt
@@ -118,15 +165,18 @@ uvicorn app:app --port 8000                                                     
 ```
 
 ## Pengaturan
-- **Modal, risiko per transaksi, batas posisi, dan batas rugi mingguan:** atur di Beranda. Disimpan per perangkat.
+- **Modal, risiko per transaksi, batas rugi mingguan, batas harian, dan batas posisi:** atur di menu Pengaturan. Disimpan per perangkat.
+- **Pindah perangkat:** Pengaturan → *Unduh cadangan* menghasilkan file JSON berisi posisi, jurnal, dan pengaturan; buka di perangkat lain lalu pilih *Pulihkan*.
 - **`config.json`:** berisi `watchlist` (contoh saham likuid, **bukan rekomendasi**), parameter strategi, *fee broker*, interval *refresh*, dan jam sesi BEI.
 
 ## Batasan
-- **Data BEI diambil dari endpoint situs idx.co.id, bukan API resmi yang terdokumentasi.** *Server cloud* bisa ditolak oleh proteksi situs, dan format datanya bisa berubah sewaktu-waktu. Jika gagal, Daftar Pagi menampilkan pesan error. Endpoint ini belum diuji dari *server* produksi.
+- **Data BEI diambil dari endpoint situs idx.co.id, bukan API resmi yang terdokumentasi.** Formatnya bisa berubah sewaktu-waktu, dan pengambilannya bergantung pada laptop yang menyala. *Dashboard* memberi tahu jika data laptop sudah lebih dari 2 hari.
+- **Berita** diambil dari Google News RSS dan keterbukaan informasi BEI. Hanya judul, sumber, waktu, dan tautan yang ditampilkan. Jenis dan arah berita ditentukan dengan aturan kata kunci, sehingga bisa keliru. Statistik reaksi baru muncul setelah ada minimal 10 kejadian per jenis.
+- **Track Record** baru bermakna setelah beberapa minggu. Status hari berjalan memakai data harian, sehingga urutan SL/TP di dalam hari tidak diketahui; jika keduanya tersentuh, hasilnya dihitung sebagai SL (asumsi terburuk).
 - **Data Yahoo Finance gratis tetapi dapat tertunda.** Setiap kartu sinyal menampilkan jam "harga per". Cocokkan dengan Stockbit sebelum order.
 - **Stockbit tidak menyediakan API order untuk nasabah**, jadi eksekusi dilakukan lewat Auto Buy / Auto Sell / Trailing Stop di aplikasi Stockbit.
-- **Data tersimpan per perangkat:** posisi, jurnal, dan pengaturan disimpan di *browser* (`localStorage`), jadi tidak tersinkron antarperangkat.
-- **Cakupan backtest:** memakai data harian dan tidak memperhitungkan ARA/ARB, suspensi, atau antrean *bid/offer*. Hasil masa lalu tidak menjamin hasil ke depan.
+- **Data tersimpan per perangkat:** posisi, jurnal, dan pengaturan disimpan di *browser* (`localStorage`). Gunakan cadangan untuk memindahkannya.
+- **Cakupan backtest:** memakai data harian dan tidak memperhitungkan antrean *bid/offer*. Hasil masa lalu tidak menjamin hasil ke depan.
 - **Batas *cut loss* di Cek Saham bersifat teknikal:** *support* terdekat di bawah harga. Keputusan tetap di tangan Anda.
 
 ## Uji

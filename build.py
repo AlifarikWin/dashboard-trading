@@ -534,8 +534,8 @@ def main() -> None:
     a = ap.parse_args()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    shutil.copy(BASE / "static" / "index.html", out / "index.html")
-    shutil.copytree(BASE / "static" / "vendor", out / "vendor", dirs_exist_ok=True)
+    # salin seluruh file aplikasi (halaman, PWA, library) — folder data dibuat oleh build
+    shutil.copytree(BASE / "static", out, dirs_exist_ok=True, ignore=shutil.ignore_patterns("data"))
     (out / ".nojekyll").write_text("")
     meta = build_all(out, heavy=a.heavy, demo=os.getenv("DEMO") == "1")
     print(json.dumps(meta, ensure_ascii=False, indent=1)[:1500])
