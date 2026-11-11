@@ -18,55 +18,71 @@ concurrency:
 jobs:
   fetch:
     runs-on: self-hosted
-    timeout-minutes: 40
+    timeout-minutes: 90
     defaults:
       run:
-        shell: bash   # Windows: memakai Git Bash (terpasang bersama Git for Windows)
+        # Windows PowerShell 5.1 selalu ada di Windows; service runner tidak selalu menemukan bash.
+        shell: powershell
     env:
       PYTHONUTF8: "1"
       PYTHONIOENCODING: utf-8
     steps:
       - uses: actions/checkout@v4
 
-      # Python dari laptop (bukan setup-python) dipasang ke virtualenv di folder runner,
-      # sehingga tetap berjalan walau runner dipasang sebagai service Windows.
+      # Python laptop dipasang ke virtualenv di folder runner agar tetap jalan sebagai service Windows
+      # (service tidak membaca PATH milik akun pengguna).
       - name: Siapkan Python
         run: |
-          TC=$(cygpath -u "$RUNNER_TOOL_CACHE" 2>/dev/null || echo "$RUNNER_TOOL_CACHE")
-          VENV="$TC/dashboard-venv"
-          if [ "$RUNNER_OS" = "Windows" ]; then PYBIN="$VENV/Scripts/python.exe"; else PYBIN="$VENV/bin/python"; fi
-          if [ ! -x "$PYBIN" ]; then
-            BASE=""
-            # "py" dulu: di Windows, "python3" bisa berupa pintasan Microsoft Store yang bukan Python sungguhan
-            # Service Windows tidak membaca PATH milik akun pengguna, jadi lokasi umum juga dicek langsung.
-            for c in /c/Python312/python.exe /c/Python313/python.exe /c/Python311/python.exe /c/Python314/python.exe \
-                     "/c/Program Files/Python312/python.exe" "/c/Program Files/Python313/python.exe" \
-                     "/c/Program Files/Python311/python.exe" "/c/Program Files/Python314/python.exe" \
-                     py python python3; do
-              if command -v "$c" >/dev/null 2>&1 && "$c" -c "import sys; sys.exit(sys.version_info < (3, 10))" >/dev/null 2>&1; then BASE="$c"; break; fi
-            done
-            if [ -z "$BASE" ]; then echo "::error::Python 3.10+ tidak ditemukan. Pasang Python untuk semua pengguna (All users) dan centang Add to PATH."; exit 1; fi
-            "$BASE" -m venv "$VENV"
-          fi
-          "$PYBIN" -m pip install -q --upgrade pip
-          "$PYBIN" -m pip install -q -r requirements.txt
-          echo "PY=$PYBIN" >> "$GITHUB_ENV"
-          "$PYBIN" --version
+          $ErrorActionPreference = 'Continue'
+          $venv = Join-Path $env:RUNNER_TOOL_CACHE 'dashboard-venv'
+          $py = Join-Path $venv 'Scripts\python.exe'
+          if (-not (Test-Path $py)) {
+            $cands = @('C:\Python312\python.exe', 'C:\Python313\python.exe', 'C:\Python311\python.exe', 'C:\Python314\python.exe',
+                       "$env:ProgramFiles\Python312\python.exe", "$env:ProgramFiles\Python313\python.exe",
+                       "$env:ProgramFiles\Python311\python.exe", "$env:ProgramFiles\Python314\python.exe")
+            foreach ($n in 'py', 'python') { $c = Get-Command $n -ErrorAction SilentlyContinue; if ($c) { $cands += $c.Source } }
+            $base = $null
+            foreach ($c in $cands) {
+              if (-not (Test-Path $c)) { continue }
+              & $c -c "import sys; sys.exit(sys.version_info < (3, 10))" 2>$null
+              if ($LASTEXITCODE -eq 0) { $base = $c; break }
+            }
+            if (-not $base) { Write-Output '::error::Python 3.10+ tidak ditemukan di laptop.'; exit 1 }
+            Write-Output "Membuat virtualenv dari $base"
+            & $base -m venv $venv
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          & $py -m pip install -q --disable-pip-version-check -r requirements.txt
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Add-Content -Path $env:GITHUB_ENV -Value "PY=$py" -Encoding ascii
+          & $py --version
 
       - name: Ambil penyimpanan permanen
-        run: '"$PY" store.py pull store'
+        run: |
+          $ErrorActionPreference = 'Continue'
+          & $env:PY store.py pull store
+          exit $LASTEXITCODE
 
       - name: Unduh data resmi BEI
-        run: '"$PY" fetch_bei.py --store store'
+        run: |
+          $ErrorActionPreference = 'Continue'
+          & $env:PY fetch_bei.py --store store
+          exit $LASTEXITCODE
 
       - name: Simpan ke penyimpanan permanen
         if: always()
-        run: '"$PY" store.py push store "data BEI dari laptop"'
+        run: |
+          $ErrorActionPreference = 'Continue'
+          & $env:PY store.py push store "data BEI dari laptop"
+          exit $LASTEXITCODE
 
       - name: Perbarui dashboard
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: '"$PY" fetch_bei.py --dispatch'
+        run: |
+          $ErrorActionPreference = 'Continue'
+          & $env:PY fetch_bei.py --dispatch
+          exit $LASTEXITCODE
 
   kabari-jika-gagal:
     needs: fetch
