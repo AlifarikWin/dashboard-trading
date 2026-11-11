@@ -192,10 +192,14 @@ def technical(df: pd.DataFrame) -> dict:
 # ----------------------------------------------------------------------------
 FUND_FIELDS = ["longName", "sector", "industry", "marketCap", "trailingPE", "priceToBook", "returnOnEquity",
                "debtToEquity", "profitMargins", "revenueGrowth", "earningsGrowth", "dividendYield",
-               "trailingEps", "bookValue", "currency"]
+               "trailingAnnualDividendYield", "trailingEps", "bookValue", "currency"]
 
 
-def fetch_fundamentals(tickers: list[str], cache_file: Path, max_age_days: int = 7, delay: float = 0.5) -> dict:
+def fetch_fundamentals(tickers: list[str], cache_file: Path, max_age_days: int = 7, delay: float = 0.5,
+                       limit: int | None = None, priority: list[str] | None = None) -> dict:
+    """Data fundamental rinci per saham (yf.Ticker.info), disimpan di cache.
+    `limit` membatasi jumlah unduhan per run (diperbarui bergiliran, yang paling lama lebih dulu);
+    saham di `priority` (watchlist) selalu didahulukan."""
     cache = {}
     if cache_file.exists():
         try:
@@ -203,7 +207,11 @@ def fetch_fundamentals(tickers: list[str], cache_file: Path, max_age_days: int =
         except json.JSONDecodeError:
             cache = {}
     now = time.time()
-    todo = [t for t in tickers if now - cache.get(t, {}).get("_ts", 0) > max_age_days * 86400]
+    stale = [t for t in tickers if now - cache.get(t, {}).get("_ts", 0) > max_age_days * 86400]
+    pri = set(priority or [])
+    todo = sorted(stale, key=lambda t: (t not in pri, cache.get(t, {}).get("_ts", 0)))
+    if limit is not None:
+        todo = todo[:limit]
     if todo:
         import yfinance as yf
         for t in todo:
@@ -211,7 +219,7 @@ def fetch_fundamentals(tickers: list[str], cache_file: Path, max_age_days: int =
                 info = yf.Ticker(f"{t}.JK").info or {}
                 cache[t] = {k: info.get(k) for k in FUND_FIELDS} | {"_ts": now, "_date": datetime.now().strftime("%Y-%m-%d")}
             except Exception as e:
-                cache.setdefault(t, {})["_error"] = type(e).__name__
+                cache[t] = {**cache.get(t, {}), "_error": type(e).__name__, "_ts": now}  # tetap bergiliran
             time.sleep(delay)
         cache_file.parent.mkdir(parents=True, exist_ok=True)
         cache_file.write_text(json.dumps(cache))
@@ -231,7 +239,9 @@ def fundamental(raw: dict | None, price: float) -> dict:
     fin = (raw.get("sector") or "") == "Financial Services"
     roe, margin = _pct(raw.get("returnOnEquity")), _pct(raw.get("profitMargins"))
     rg, eg = _pct(raw.get("revenueGrowth")), _pct(raw.get("earningsGrowth"))
-    dy = _pct(raw.get("dividendYield"))
+    # trailingAnnualDividendYield selalu berupa rasio (0,035 = 3,5%); dividendYield dari Yahoo kini sudah persen
+    tdy = raw.get("trailingAnnualDividendYield")
+    dy = float(tdy) * 100 if tdy is not None else (float(raw["dividendYield"]) if raw.get("dividendYield") is not None else None)
     der = raw.get("debtToEquity")  # Yahoo: persen (mis. 45 = 0,45×)
     pe, pb, eps, bv = raw.get("trailingPE"), raw.get("priceToBook"), raw.get("trailingEps"), raw.get("bookValue")
     items, score, counted = [], 0, 0
@@ -351,5 +361,5 @@ def enrich_technical(a: dict, wk_up: bool | None, wk_down: bool | None, rs: dict
         sv = sector["avg_ret20"]
         items.append({"label": f"Sektor ({sector['name']})", "value": f"{sv:+.1f}% / 20 hari".replace(".", ","),
                       "tone": "good" if sv > 0 else "bad",
-                      "note": f"Rata-rata {sector['n']} saham sektor yang sama di watchlist"})
+                      "note": f"Median {sector['n']} saham di sektor ini"})
     a["rs"] = rs

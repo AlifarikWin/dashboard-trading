@@ -2,9 +2,9 @@ name: data-bei-laptop
 
 # Berjalan di LAPTOP Anda (GitHub self-hosted runner), karena situs BEI menolak server cloud.
 # Jika laptop mati saat jadwal, job menunggu dan langsung berjalan begitu runner online kembali.
+# Jadwal otomatis dimatikan: situs BEI memasang proteksi Cloudflare yang memblokir akses otomatis
+# (juga dari laptop). Workflow ini hanya bisa dijalankan manual bila suatu saat aksesnya tersedia.
 on:
-  schedule:
-    - cron: "52 10 * * 1-5"   # 17.52 WIB Senin–Jumat (setelah data penutupan BEI terbit)
   workflow_dispatch:
 
 permissions:
@@ -63,12 +63,6 @@ jobs:
           $ErrorActionPreference = 'Continue'
           & $env:PY store.py pull store
           exit $LASTEXITCODE
-
-      - name: Diagnosis akses BEI
-        continue-on-error: true
-        run: |
-          $ErrorActionPreference = 'Continue'
-          & $env:PY diag_bei.py
 
       - name: Unduh data resmi BEI
         run: |

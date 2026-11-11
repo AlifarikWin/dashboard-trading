@@ -34,6 +34,7 @@ import news
 import notify
 import risk as rk
 import track
+import universe as uni
 import strategy as st
 from data import WIB
 
@@ -68,6 +69,13 @@ def write(out: Path, name: str, obj) -> None:
     tmp = p.with_suffix(".tmp")
     tmp.write_text(json.dumps(_clean(obj), ensure_ascii=False, separators=(",", ":")))
     tmp.replace(p)
+
+
+def _read_json(p: Path, default):
+    try:
+        return json.loads(p.read_text(encoding="utf-8")) if p.exists() else default
+    except (ValueError, OSError):
+        return default
 
 
 def yahoo_panel(frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
@@ -187,13 +195,83 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
             data[t] = clean
     invalid = {t for t, v in validation.items() if v["fatal"]}
 
+    uflags: dict[str, list] = {}
+
     def flags_for(code: str) -> list[dict]:
-        fl = list(flags_idx.get(code, []))
+        fl = list(flags_idx.get(code, [])) + list(uflags.get(code, []))
         v = validation.get(code)
         if v:
             fl += [{"kind": "data", "text": x, "block": True} for x in v["fatal"]]
             fl += [{"kind": "data", "text": x, "block": False} for x in v["warn"]]
         return fl
+
+    # ---------- 1b. Seluruh emiten (Yahoo): dihitung sekali per hari bursa, disimpan di cache ----------
+    all_dir = Path(os.getenv("ALL_CACHE", BASE / "cache_all"))
+    all_dir.mkdir(parents=True, exist_ok=True)
+    ustate = _read_json(all_dir / "state.json", {})
+    last_close = None
+    if ihsg is not None and len(ihsg):
+        li = ihsg.index[-1].date()
+        last_close = ihsg.index[-2].date() if (li == today and mstatus != "tutup" and len(ihsg) > 1) else li
+    fund_file = store / "fundamentals.json"
+    div_file = store / "dividends.json"
+    div_stats = _read_json(div_file, {}).get("stats", {})
+    need_univ = (not ustate.get("date") or (last_close and ustate["date"] < str(last_close))
+                 or not (all_dir / "universe.json").exists() or os.getenv("UNIVERSE_REBUILD") == "1")
+    if need_univ:
+        try:
+            tu = time.time()
+            lst_file = all_dir / "listing.json"
+            lst = _read_json(lst_file, {})
+            if demo:
+                lst = {"fetched_at": now.isoformat(), "rows": uni.demo_list(sorted(set(cfg["watchlist"]) | {f"DM{i:02d}" for i in range(40)}))}
+            elif not lst.get("rows") or (now - datetime.fromisoformat(lst["fetched_at"])).days >= 7:
+                rows_ = uni.fetch_list()
+                if len(rows_) > 300:  # jangan timpa daftar lama dengan hasil yang jelas tidak lengkap
+                    lst = {"fetched_at": now.isoformat(timespec="minutes"), "rows": rows_}
+            listing = lst.get("rows") or {}
+            if listing:
+                lst_file.write_text(json.dumps(lst, ensure_ascii=False), encoding="utf-8")
+                codes_all = sorted(listing)
+                if demo:
+                    ufr, _ = datasrc.demo(codes_all, now)
+                else:
+                    ufr = uni.download(codes_all)
+                    for t, df in data.items():  # watchlist sudah diunduh lebih lengkap
+                        ufr.setdefault(t, df)
+                ufr = {c: (df[df.index.date < today] if mstatus != "tutup" else df) for c, df in ufr.items()}
+                ufr = {c: df for c, df in ufr.items() if len(df) >= 60}
+                if not demo:
+                    try:
+                        detail = an.fetch_fundamentals(codes_all, fund_file, limit=150 if heavy else 0, priority=cfg["watchlist"])
+                    except Exception:
+                        detail = _read_json(fund_file, {})
+                    dv = _read_json(div_file, {})
+                    if heavy and (not dv.get("fetched_at") or (now - datetime.fromisoformat(dv["fetched_at"])).days >= 7):
+                        try:
+                            st_ = uni.fetch_dividend_stats(codes_all)
+                            if st_:
+                                dv = {"fetched_at": now.isoformat(timespec="minutes"), "stats": st_}
+                                div_file.write_text(json.dumps(dv), encoding="utf-8")
+                        except Exception:
+                            traceback.print_exc()
+                    div_stats = dv.get("stats", {})
+                else:
+                    detail, div_stats = {}, {c: {"n": 5, "up": 4, "avg_run": 2.4, "avg_drop": -3.1, "pre_days": 10, "events": []}
+                                             for c in codes_all[:10]}
+                nxt_u = track.next_bday(last_close or today)
+                ustate = uni.build(all_dir, listing, ufr, ihsg, cfg, regime, today, detail, div_stats, nxt_u)
+                ustate["seconds"] = round(time.time() - tu, 1)
+                (all_dir / "state.json").write_text(json.dumps(ustate))
+                (all_dir / ".updated").write_text(now.isoformat())
+        except Exception as e:
+            traceback.print_exc()
+            errors.append(f"Data seluruh emiten gagal diperbarui: {type(e).__name__}")
+    uindex = _read_json(all_dir / "universe.json", {"rows": []})
+    uflags = _read_json(all_dir / "flags.json", {})
+    usector = _read_json(all_dir / "sector_rs.json", {})
+    if not uindex["rows"]:
+        errors.append("Daftar seluruh emiten belum tersedia; pencarian terbatas pada watchlist.")
 
     rows, radars, checks, weekly = [], [], {}, {}
     for t, df in data.items():
@@ -224,19 +302,20 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
 
     # ---------- 2. Daftar Pagi (data resmi BEI, seluruh saham) ----------
     no_foreign = False
+    lr0 = laptop.get("last_run") or {}
+    use_idx = bool(lr0.get("ok")) and (now - datetime.fromisoformat(lr0["at"])).days <= 4
+    panel, idx_err = pd.DataFrame(), []
     if demo:
         end = (pd.Timestamp(today) - pd.offsets.BDay(1)).date() if mstatus != "tutup" else today
-        panel, idx_err = idxsrc.demo_panel(dcfg0["history_days"], 150, end=end), []
-    else:
+        panel = idxsrc.demo_panel(dcfg0["history_days"], 150, end=end)
+    elif use_idx:  # data resmi BEI (bila suatu saat tersedia dari runner laptop)
         client = idxsrc.IdxClient(idx_dir / "summary")
         panel, idx_err = client.history(dcfg0["history_days"])
-        if client.blocked and client.last_error:
-            idx_err = [f"{e} ({client.last_error})" for e in idx_err[:1]]
     source = "BEI (idx.co.id)"
     if panel.empty:
-        errors.append("Data BEI tidak dapat diunduh" + (f" [{idx_err[0]}]" if idx_err else "")
-                      + "; Daftar Pagi memakai watchlist dari Yahoo tanpa data asing.")
-        panel, no_foreign, source = yahoo_panel(data), True, "Yahoo Finance (watchlist, tanpa data asing)"
+        panel, no_foreign, source = uni.load_panel(all_dir), True, "Yahoo Finance (seluruh bursa, tanpa data asing)"
+        if panel.empty:
+            panel, source = yahoo_panel(data), "Yahoo Finance (watchlist, tanpa data asing)"
         if not panel.empty and mstatus != "tutup":
             panel = panel[panel["date"] < pd.Timestamp(today)]  # bar hari ini belum lengkap
     else:
@@ -247,7 +326,8 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
         if mstatus != "tutup":
             panel = panel[panel["date"] < pd.Timestamp(today)]
     dcfg = {**dcfg0, "no_foreign": no_foreign}
-    blocked = invalid | {c for c, fl in flags_idx.items() if any(f["block"] for f in fl)}
+    blocked = invalid | {c for c, fl in flags_idx.items() if any(f["block"] for f in fl)} \
+        | {r["c"] for r in uindex["rows"] if r.get("blk")}
 
     opt, dt_res, dt_bt = None, {"date": None, "picks": [], "scanned": 0, "eligible": 0}, {"trades": 0}
     if not panel.empty:
@@ -341,6 +421,10 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
         errors.append(f"Kalender: {type(e).__name__}")
     events = ycal.get("events", []) + news.idx_calendar((laptop.get("calendar") or {}).get("rows"))
     coming = news.upcoming(events, today, days=10)
+    for e in coming:
+        dsx = div_stats.get(e["code"])
+        if dsx and "dividen" in e["kind"].lower():
+            e["pattern"] = {k: dsx[k] for k in ("n", "up", "avg_run", "avg_drop", "pre_days")}
     soon = {}
     horizon = str(track.next_bday(track.next_bday(today)))
     for e in coming:
@@ -351,11 +435,10 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
             p["flags"].append({"kind": "event", "text": f"{e['kind']} {e['date']}", "block": False})
 
     # ---------- 4. Analisis per saham ----------
-    fund_file = store / "fundamentals.json"
     try:
         if demo:
             funds = {t: an.demo_fundamental(t) for t in frames}
-        elif heavy or not fund_file.exists() or set(frames) - set(json.loads(fund_file.read_text())):
+        elif not fund_file.exists() or set(frames) - set(json.loads(fund_file.read_text())):
             funds = an.fetch_fundamentals(sorted(frames), fund_file)
         else:
             funds = json.loads(fund_file.read_text())
@@ -363,14 +446,20 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
         traceback.print_exc()
         funds = {}
         errors.append("Data fundamental gagal diunduh.")
-    # sektor: utamakan data BEI, cadangan Yahoo
-    sect = {t: sector_map.get(t) or (funds.get(t) or {}).get("sector") for t in frames}
+    # sektor: utamakan data BEI, lalu daftar emiten Yahoo, lalu data fundamental rinci
+    listing = _read_json(all_dir / "listing.json", {}).get("rows", {})
+    sect = {t: sector_map.get(t) or (listing.get(t) or {}).get("sector") or (funds.get(t) or {}).get("sector") for t in frames}
     rets = {t: (df["Close"].iloc[-1] / df["Close"].iloc[-21] - 1) * 100 for t, df in frames.items() if len(df) > 21}
     sector_rs = {}
     for name in {v for v in sect.values() if v}:
         mem = [rets[t] for t, v in sect.items() if v == name and t in rets]
         sector_rs[name] = {"name": name, "n": len(mem), "avg_ret20": round(float(np.mean(mem)), 2) if mem else None}
+    if usector:  # median seluruh saham di sektor yang sama (lebih bermakna daripada watchlist saja)
+        sector_rs.update(usector)
     zmap, alist = {}, []
+    # salin analisis harian seluruh emiten; watchlist & Daftar Pagi ditimpa versi terbaru di bawah
+    if (all_dir / "analysis").exists():
+        shutil.copytree(all_dir / "analysis", out / "data" / "analysis", dirs_exist_ok=True)
 
     # ---------- 5. Stream berita ----------
     news_dir = store / "news"
@@ -406,7 +495,8 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
 
     for t, df in frames.items():
         try:
-            a = an.analyze(t, df, funds.get(t))
+            info = listing.get(t)
+            a = an.analyze(t, df, uni.merge_fund(uni.basic_fund(info) if info else None, funds.get(t)))
             wu, wd = weekly.get(t, (None, None))
             if t not in weekly:
                 dd = st.add_indicators(df, s)
@@ -418,14 +508,27 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
             a["flags"] = flags_for(t)
             a["events"] = [e for e in coming if e["code"] == t]
             a["news"] = by_code.get(t, [])[:12]
+            a["name"] = (info or {}).get("name") or (a["fundamental"] or {}).get("name")
+            a["dividend"] = div_stats.get(t)
+            a["scope"] = "intraday"
+            zc = an.card_zones(a)
+            uni.compact_ohlc(a)
             write(out, f"analysis/{t}", a)
-            zmap[t] = an.card_zones(a)
+            zmap[t] = zc
             alist.append({"ticker": t, "name": (a["fundamental"] or {}).get("name"), "price": a["price"]})
         except Exception as e:
             errors.append(f"Analisis {t}: {type(e).__name__}")
     write(out, "analysis/index", sorted(alist, key=lambda x: x["ticker"]))
+    # daftar seluruh emiten untuk pencarian & menu Semua Saham (harga watchlist diperbarui intraday)
+    urows = {r["c"]: r for r in uindex["rows"]}
+    for t, df in frames.items():
+        if t in urows and len(df) > 1:
+            urows[t] = {**urows[t], "p": float(df["Close"].iloc[-1]),
+                        "ch": round(float(df["Close"].iloc[-1] / df["Close"].iloc[-2] - 1) * 100, 2), "d": str(df.index[-1].date())}
+    write(out, "universe", {"date": uindex.get("date"), "rows": sorted(urows.values(), key=lambda r: r["c"]),
+                            "watchlist": cfg["watchlist"], "state": ustate, "div": {c: [v["up"], v["n"], v["avg_run"]] for c, v in div_stats.items()}})
     fund_ok = sum(1 for t in frames if an.fundamental(funds.get(t), 1.0).get("available"))
-    coverage = {"analysis": len(alist), "fundamental": fund_ok, "of": len(frames), "news_7d": len(recent),
+    coverage = {"analysis": len(alist), "fundamental": fund_ok, "of": len(frames), "universe": len(urows), "news_7d": len(recent),
                 "news_archive": len(archive), "flags_idx": len(flags_idx)}
     for r in rows:
         r["zones"] = zmap.get(r["ticker"])
@@ -476,10 +579,6 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
                     once(f"live-{today}-{p['code']}-{lv['status']}", f"{p['code']}: {lv['status']}",
                          f"Last {lv['last']:.0f} · SL {p['plan']['sl']} · TP {p['plan']['tp']}", tags=tag,
                          priority="high", click=url)
-            lr = laptop.get("last_run")
-            if lr and (now - datetime.fromisoformat(lr["at"])).total_seconds() > 2 * 86400 and now.weekday() < 5:
-                once(f"laptop-{today}", "Data BEI belum diperbarui", "Runner laptop belum mengirim data lebih dari 2 hari. "
-                     "Pastikan laptop menyala dan runner aktif.", tags="warning")
             once.save()
         except Exception as e:
             errors.append(f"Notifikasi: {type(e).__name__}")

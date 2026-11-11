@@ -71,9 +71,19 @@ jobs:
       - name: Ambil penyimpanan permanen (branch records)
         run: python store.py pull store
 
+      # Analisis harian seluruh emiten (±800 file) disimpan di cache Actions, bukan di git:
+      # dihitung ulang sekali per hari bursa, run lain cukup memulihkannya.
+      - name: Pulihkan data seluruh emiten
+        uses: actions/cache/restore@v4
+        with:
+          path: cache_all
+          key: allstocks-${{ github.run_id }}
+          restore-keys: allstocks-
+
       - name: Hitung data dashboard
         env:
           STORE: store
+          ALL_CACHE: cache_all
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
         run: |
@@ -88,6 +98,18 @@ jobs:
       - name: Simpan penyimpanan permanen
         if: always()
         run: python store.py push store "data $(TZ=Asia/Jakarta date '+%Y-%m-%d %H:%M') WIB"
+
+      - name: Cek data seluruh emiten diperbarui
+        id: cu
+        run: |
+          if [ -f cache_all/.updated ]; then rm cache_all/.updated; echo "save=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Simpan data seluruh emiten
+        if: steps.cu.outputs.save == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: cache_all
+          key: allstocks-${{ github.run_id }}
 
       - uses: actions/configure-pages@v5
 
