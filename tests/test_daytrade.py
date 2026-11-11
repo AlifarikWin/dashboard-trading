@@ -109,6 +109,8 @@ def test_optimize_applies_only_when_out_of_sample_positive(monkeypatch):
 def test_static_build_demo(tmp_path, monkeypatch):
     import build
     monkeypatch.setenv("IDX_CACHE", str(tmp_path / "cache" / "idx"))
+    monkeypatch.setenv("STORE", str(tmp_path / "store"))       # jangan menulis ke folder proyek
+    monkeypatch.setenv("ALL_CACHE", str(tmp_path / "all"))
     meta = build.build_all(tmp_path / "site", heavy=False, demo=True)
     d = tmp_path / "site" / "data"
     for name in ("meta", "signals", "check", "daytrade", "backtest"):
@@ -118,6 +120,7 @@ def test_static_build_demo(tmp_path, monkeypatch):
     chk = json.loads((d / "check.json").read_text())
     assert "atr" in next(iter(chk["stocks"].values()))["levels"]
     assert isinstance(meta["errors"], list)
+    assert meta["universe"]["demo"] is True and (tmp_path / "all" / "universe.json").exists()
 
 
 def test_relative_strength_feature_and_filter():

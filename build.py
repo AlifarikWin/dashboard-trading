@@ -216,7 +216,7 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
     fund_file = store / "fundamentals.json"
     div_file = store / "dividends.json"
     div_stats = _read_json(div_file, {}).get("stats", {})
-    need_univ = (not ustate.get("date") or (last_close and ustate["date"] < str(last_close))
+    need_univ = (bool(ustate.get("demo")) != demo or not ustate.get("date") or (last_close and ustate["date"] < str(last_close))
                  or not (all_dir / "universe.json").exists() or os.getenv("UNIVERSE_REBUILD") == "1")
     if need_univ:
         try:
@@ -262,6 +262,7 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
                 nxt_u = track.next_bday(last_close or today)
                 ustate = uni.build(all_dir, listing, ufr, ihsg, cfg, regime, today, detail, div_stats, nxt_u)
                 ustate["seconds"] = round(time.time() - tu, 1)
+                ustate["demo"] = demo  # cache demo tidak boleh dipakai oleh build data asli
                 (all_dir / "state.json").write_text(json.dumps(ustate))
                 (all_dir / ".updated").write_text(now.isoformat())
         except Exception as e:
