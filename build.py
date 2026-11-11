@@ -173,6 +173,10 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
     if not data:
         errors.append("Data harga watchlist (Yahoo) gagal diunduh.")
     validation: dict[str, dict] = {}
+    if data:
+        for t in cfg["watchlist"]:
+            if t not in data:
+                validation[t] = {"fatal": ["Yahoo tidak mengirim cukup data harga"], "warn": []}
     for t in list(data):
         clean, fatal, warn = rk.validate_frame(t, data[t], today, market_open)
         if fatal or warn:

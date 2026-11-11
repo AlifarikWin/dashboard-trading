@@ -502,6 +502,10 @@ function renderToday() {
   const age = dataAgeMin();
   if (age > 40 && META.market.status === "buka") notes.unshift(`Data terakhir ${age} menit lalu (jadwal GitHub terlambat).`);
   if (d.no_foreign) notes.push("Tanpa data asing: hanya saham watchlist yang dipindai.");
+  const val = Object.entries(META.validation || {});
+  val.filter(([, v]) => (v.fatal || []).length).forEach(([t, v]) => notes.push(`${t} tidak dihitung hari ini: ${v.fatal.join("; ")}.`));
+  const warned = val.filter(([, v]) => !(v.fatal || []).length && (v.warn || []).length).map(([t]) => t);
+  if (warned.length) notes.push(`Data dirapikan otomatis untuk ${warned.length} saham (${warned.slice(0, 8).join(", ")}${warned.length > 8 ? ", …" : ""}).`);
   $("#noteBtn").textContent = notes.length ? `ⓘ Catatan data (${notes.length})` : "ⓘ Tentang data";
   $("#noteBtn").onclick = () => sheet(`<h2>Catatan data</h2>
     <p>Sumber: ${esc(d.source)}. Data penutupan ${esc(d.date)}. ${fmt(d.scanned)} saham dipindai, ${fmt(d.eligible)} lolos filter.</p>
