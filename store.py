@@ -35,7 +35,7 @@ def pull(path: Path) -> None:
     # salin kredensial checkout (extraheader) agar push dari folder ini juga terotentikasi
     extra = git("config", "--get-regexp", r"http\..*\.extraheader", check=False).stdout.strip().splitlines()
     if exists:
-        hdr = [f"-c{k}={v}" for k, v in (ln.split(" ", 1) for ln in extra)]
+        hdr = [a for k, v in (ln.split(" ", 1) for ln in extra) for a in ("-c", f"{k}={v}")]
         git(*hdr, "clone", "--depth", "1", "--branch", BRANCH, url, str(path))
     else:
         git("init", "-b", BRANCH, str(path))

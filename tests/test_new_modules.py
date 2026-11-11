@@ -169,6 +169,8 @@ def test_store_pull_push_roundtrip(tmp_path, monkeypatch):
     (s1 / "track").mkdir()
     (s1 / "track" / "a.json").write_text("1")
     assert store.push(s1, "first")
+    # seperti actions/checkout: kredensial disimpan sebagai extraheader dan harus ikut saat clone
+    subprocess.run(["git", "config", "http.https://github.com/.extraheader", "AUTHORIZATION: basic dGVzdA=="], cwd=work, check=True)
     s2 = tmp_path / "s2"
     store.pull(s2)
     assert (s2 / "track" / "a.json").read_text() == "1"
@@ -179,3 +181,5 @@ def test_store_pull_push_roundtrip(tmp_path, monkeypatch):
     s3 = tmp_path / "s3"
     store.pull(s3)
     assert {p.name for p in s3.iterdir()} >= {"b.json", "c.json", "track"}
+    hdr = subprocess.run(["git", "config", "--get", "http.https://github.com/.extraheader"], cwd=s3, capture_output=True, text=True).stdout
+    assert hdr.strip() == "AUTHORIZATION: basic dGVzdA=="
