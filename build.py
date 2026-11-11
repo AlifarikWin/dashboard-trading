@@ -649,6 +649,25 @@ def main() -> None:
     meta = build_all(out, heavy=a.heavy, demo=os.getenv("DEMO") == "1")
     print(json.dumps({k: meta.get(k) for k in ("generated_at", "build_seconds", "errors", "coverage", "universe")},
                      ensure_ascii=False, indent=1))
+    # ringkasan pemeriksaan hasil (tampil di log Actions)
+    try:
+        u = json.loads((out / "data" / "universe.json").read_text(encoding="utf-8"))
+        rows = u["rows"]
+        adir = out / "data" / "analysis"
+        files = list(adir.glob("*.json"))
+        kinds: dict = {}
+        for r in rows:
+            for k in r["fl"]:
+                kinds[k] = kinds.get(k, 0) + 1
+        fund = sum(1 for r in rows if r.get("pe") or r.get("roe"))
+        print(json.dumps({"universe_rows": len(rows), "analysis_files": len(files),
+                          "analysis_mb": round(sum(f.stat().st_size for f in files) / 1e6, 1),
+                          "blocked": sum(r["blk"] for r in rows), "flags": kinds, "with_fundamental": fund,
+                          "with_dividend_pattern": len(u.get("div", {})), "sectors": len({r["s"] for r in rows if r["s"]}),
+                          "sample": next((r for r in rows if r["c"] == "TLKM"), rows[0] if rows else None)},
+                         ensure_ascii=False, indent=1))
+    except Exception as e:
+        print("verifikasi universe:", type(e).__name__, e)
 
 
 if __name__ == "__main__":
