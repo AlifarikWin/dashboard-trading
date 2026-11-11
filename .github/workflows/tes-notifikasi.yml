@@ -1,0 +1,22 @@
+name: tes-notifikasi
+
+# Kirim satu notifikasi uji ke HP (topik ntfy dari secret NTFY_TOPIC). Jalankan manual dari tab Actions.
+on: workflow_dispatch
+
+jobs:
+  kirim:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+        run: |
+          if [ -z "$NTFY_TOPIC" ]; then echo "::error::Secret NTFY_TOPIC belum diisi."; exit 1; fi
+          echo "Panjang nama topik: ${#NTFY_TOPIC} karakter"
+          code=$(curl -s -o /tmp/r.txt -w "%{http_code}" -H "Content-Type: application/json" -d "$(python3 -c '
+          import json, os
+          print(json.dumps({"topic": os.environ["NTFY_TOPIC"], "title": "Tes notifikasi dashboard",
+                            "message": "Berhasil! Notifikasi Daftar Pagi, TP/SL, dan laporan Senin akan masuk ke sini.",
+                            "tags": ["white_check_mark"], "click": os.environ["SITE_URL"]}))')" https://ntfy.sh/)
+          echo "HTTP $code"; head -c 300 /tmp/r.txt; echo
+          [ "$code" = "200" ]
