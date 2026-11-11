@@ -28,6 +28,7 @@ import pandas as pd
 
 import data as datasrc
 import daytrade as dtm
+import analysis as an
 import idx as idxsrc
 import strategy as st
 from data import WIB
@@ -180,9 +181,9 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
     for_today = bool(dt_res["date"]) and dt_res["date"] < now.date().isoformat() \
         and mstatus not in ("tutup", "libur akhir pekan")
     picks = dt_res["picks"]
+    pdata: dict = {}
     if picks:
         codes = [p["code"] for p in picks]
-        pdata = {}
         try:
             if demo:
                 for k, p in enumerate(picks):  # harga simulasi di sekitar penutupan kemarin
@@ -209,6 +210,39 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
                     checks[p["code"]] = st.check_stock(p["code"], df, s, risk, regime, progress if is_today else 1.0)
                 except Exception:
                     pass
+
+    # ---------- 3. Analisis per saham (level kunci, teknikal, fundamental) ----------
+    frames = {**pdata, **data}
+    fund_file = cache.parent / "fundamentals.json"
+    try:
+        if demo:
+            funds = {t: an.demo_fundamental(t) for t in frames}
+        elif heavy or not fund_file.exists():
+            funds = an.fetch_fundamentals(sorted(frames), fund_file)
+        else:
+            funds = json.loads(fund_file.read_text())
+    except Exception:
+        traceback.print_exc()
+        funds = {}
+        errors.append("Data fundamental gagal diunduh.")
+    zmap, alist = {}, []
+    for t, df in frames.items():
+        try:
+            a = an.analyze(t, df, funds.get(t))
+            write(out, f"analysis/{t}", a)
+            zmap[t] = an.card_zones(a)
+            alist.append({"ticker": t, "name": (a["fundamental"] or {}).get("name"), "price": a["price"]})
+        except Exception as e:
+            errors.append(f"Analisis {t}: {type(e).__name__}")
+    write(out, "analysis/index", sorted(alist, key=lambda x: x["ticker"]))
+    for r in rows:
+        r["zones"] = zmap.get(r["ticker"])
+    for r in radars:
+        r["zones"] = zmap.get(r["ticker"])
+    for p in picks:
+        p["zones"] = zmap.get(p["code"])
+    for t, c in checks.items():
+        c["zones"] = zmap.get(t)
 
     stamp = now.strftime("%Y-%m-%d %H:%M WIB")
     meta = {"generated_at": stamp, "market": {"status": mstatus, "progress": round(progress, 3)},
@@ -267,6 +301,7 @@ def main() -> None:
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     shutil.copy(BASE / "static" / "index.html", out / "index.html")
+    shutil.copytree(BASE / "static" / "vendor", out / "vendor", dirs_exist_ok=True)
     (out / ".nojekyll").write_text("")
     meta = build_all(out, heavy=a.heavy, demo=os.getenv("DEMO") == "1")
     print(json.dumps(meta, ensure_ascii=False, indent=1)[:1500])
