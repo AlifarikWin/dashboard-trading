@@ -196,3 +196,28 @@ def test_weekly_report_text():
     assert title == "Laporan mingguan 09/11"
     assert "2 hari, 2/2 saham terpicu" in body and "+0,10%" in body and "OLD" not in body
     assert "TIDAK LAYAK" in body and "BBCA Ex-date dividen 12/11" in body and "RUPS" not in body
+
+
+def test_news_summarize_clusters():
+    import pandas as pd
+    import news
+    idx = pd.bdate_range(end="2026-11-11", periods=30)
+    df = pd.DataFrame({"Open": 1000.0, "High": 1000.0, "Low": 1000.0, "Close": 1000.0, "Volume": 1e6}, index=idx)
+    df.iloc[-1, df.columns.get_loc("Close")] = 950.0
+    raw = [
+        {"code": "BRIS", "title": "BRIS Siapkan Rights Issue Rp1,2 Triliun", "url": "u1", "source": "A", "published": "2026-11-09T10:00:00+07:00"},
+        {"code": "BRIS", "title": "Rights issue BRIS, saham turun", "url": "u2", "source": "B", "published": "2026-11-10T09:00:00+07:00"},
+        {"code": "BRIS", "title": "BRIS umumkan HMETD", "url": "u3", "source": "A", "published": "2026-11-10T11:00:00+07:00"},
+        {"code": "BRIS", "title": "Laba BRIS naik 25% di kuartal III", "url": "u4", "source": "C", "published": "2026-11-10T12:00:00+07:00"},
+        {"code": "BRIS", "title": "BRIS private placement baru", "url": "u5", "source": "C", "published": "2026-10-20T12:00:00+07:00"},
+    ]
+    items = news.enrich(raw, {"BRIS": df})
+    st = news.summarize(items, {"BRIS": df})
+    ri = next(s for s in st if s["kind"] == "Aksi korporasi" and s["n"] == 3)
+    assert ri["detail"] == "rights issue" and ri["sources"] == 2 and ri["first"].startswith("2026-11-09")
+    assert ri["facts"] == ["Rp1,2 Triliun"] and ri["reaction"]["move_pct"] == -5.0 and ri["reaction"]["priced_in"]
+    assert [h["url"] for h in ri["heads"]] == ["u3", "u2", "u1"]
+    lk = next(s for s in st if s["kind"] == "Laporan keuangan")
+    assert lk["detail"] == "kinerja 9 bulan" and lk["facts"] == ["naik 25%"] and lk["tone"] == "positif"
+    # berita 20 Okt terpisah (jeda > 3 hari) dari rights issue
+    assert sum(1 for s in st if s["kind"] == "Aksi korporasi") == 2

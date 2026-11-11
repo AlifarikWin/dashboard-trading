@@ -503,6 +503,10 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
         state_file.write_text(json.dumps(nstate))
     week_ago = (now - timedelta(days=7)).isoformat()
     recent = news.enrich([dict(v) for v in archive.values() if v["published"] >= week_ago], frames)
+    stories = news.summarize(recent, frames)
+    stories_by: dict[str, list] = {}
+    for st_ in stories:
+        stories_by.setdefault(st_["code"], []).append(st_)
     stats = news.event_stats(archive, frames)
     by_code: dict[str, list] = {}
     for it in recent:
@@ -523,6 +527,7 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
             a["flags"] = flags_for(t)
             a["events"] = [e for e in coming if e["code"] == t]
             a["news"] = by_code.get(t, [])[:12]
+            a["stories"] = stories_by.get(t, [])[:6]
             a["name"] = (info or {}).get("name") or (a["fundamental"] or {}).get("name")
             a["dividend"] = div_stats.get(t)
             a["scope"] = "intraday"
@@ -673,7 +678,7 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
                             "tuning": tuning, "dt_backtest": dt_bt, "source": source, "no_foreign": no_foreign,
                             "stops": stops, "demo": demo, "fee_total_pct": fee, "updated": stamp,
                             "error": "; ".join(e for e in errors if "BEI" in e) or None})
-    write(out, "stream", {"generated_at": stamp, "items": recent, "upcoming": coming, "stats": stats,
+    write(out, "stream", {"generated_at": stamp, "items": recent, "stories": stories, "upcoming": coming, "stats": stats,
                           "min_n": 10, "archive_size": len(archive), "fetched_at": nstate.get("fetched_at")})
     write(out, "track", {"generated_at": stamp, **trk})
 

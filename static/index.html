@@ -1316,9 +1316,11 @@ async function renderAnalysis() {
       <p style="margin:6px 0 0;font-size:14px">Naik <b>${dv.up} dari ${dv.n}</b> kali dalam ${dv.pre_days} hari bursa sebelum cum date (rata-rata <span class="${cls(dv.avg_run)}">${pct(dv.avg_run)}</span>). Saat ex date, harga dibuka rata-rata <span class="${cls(dv.avg_drop)}">${pct(dv.avg_drop)}</span>.</p>
       <p class="muted" style="margin:6px 0 0;font-size:12.5px">Dari data 5 tahun terakhir${dv.n < 4 ? " (sampel kecil)" : ""}. Pola masa lalu, bukan jaminan.</p></div>` : ""}
 
-    ${(a.events || []).length || (a.news || []).length ? `<div class="h">Peristiwa & berita</div>` : ""}
+    ${(a.events || []).length || (a.news || []).length || (a.stories || []).length ? `<div class="h">Peristiwa & berita</div>` : ""}
     ${(a.events || []).length ? `<div class="card" style="padding:4px 14px">${a.events.map(e => `<div class="trow"><div>${esc(e.kind)}<div class="n">${esc(e.source)}</div></div><div class="val">${e.date}</div></div>`).join("")}</div>` : ""}
-    ${(a.news || []).length ? `<div class="list">${a.news.slice(0, 4).map(newsItem).join("")}</div>
+    ${(a.stories || []).length ? `<div class="list">${a.stories.slice(0, 4).map(storyItem).join("")}</div>
+      <button class="btn ghost full" data-newsof="${a.ticker}" style="margin-bottom:10px">Semua berita ${a.ticker}</button>`
+    : (a.news || []).length ? `<div class="list">${a.news.slice(0, 4).map(newsItem).join("")}</div>
       <button class="btn ghost full" data-newsof="${a.ticker}" style="margin-bottom:10px">Semua berita ${a.ticker}</button>` : ""}
 
     <details class="card more"><summary>Lihat detail</summary>
@@ -1402,12 +1404,31 @@ function newsItem(it) {
     <div class="meta"><span>${esc(it.source)}</span>${react ? "· " + react : ""}${r && r.priced_in ? `<span class="flag">Sudah dihargai — jangan kejar${ti("priced")}</span>` : ""}</div>
   </div>`;
 }
+const dmy = iso => { const d = new Date(iso); return d.toLocaleDateString("id-ID", {day: "numeric", month: "short", timeZone: "Asia/Jakarta"}) + " " + d.toLocaleTimeString("id-ID", {hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta"}); };
+// ringkasan satu peristiwa (gabungan beberapa berita) disusun dari data, bukan isi artikel
+function storyItem(s) {
+  const r = s.reaction, toneTxt = {positif: "cenderung positif", negatif: "cenderung negatif", netral: "netral"}[s.tone];
+  const parts = [s.n > 1 ? `Diberitakan ${s.n}× oleh ${s.sources} media sejak ${dmy(s.first)}, nada ${toneTxt}.`
+    : `Diberitakan ${esc(s.heads[0].source || "1 media")} pada ${dmy(s.first)}, nada ${toneTxt}.`];
+  if (s.facts && s.facts.length) parts.push(`Angka di judul: ${s.facts.map(esc).join(", ")}.`);
+  if (r) parts.push(`Harga <span class="${cls(r.move_pct)}">${pct(r.move_pct)}</span> sejak berita${s.n > 1 ? " pertama" : ""}${r.vol_ratio ? `, volume tertinggi ${fmt1(r.vol_ratio)}× rata-rata` : ""}.`);
+  return `<div class="news">
+    <div class="meta"><span class="dot2 tone-${s.tone}" title="${s.tone}"></span><b style="color:var(--text)">${esc(s.code)}</b>
+      <span class="tag ${s.official ? "t-blue" : "t-gray"}">${esc(s.kind)}${s.detail ? " · " + esc(s.detail) : ""}</span>${s.official ? `<span class="tag t-blue">Resmi BEI</span>` : ""}
+      <span>${ago(s.last)}</span></div>
+    <div style="font-size:14px;line-height:1.45;margin:4px 0">${parts.join(" ")}</div>
+    ${r && r.priced_in ? `<div class="meta"><span class="flag">Sudah dihargai — jangan kejar${ti("priced")}</span></div>` : ""}
+    <details class="more" style="margin-top:4px"><summary class="muted" style="font-size:12.5px;font-weight:500">${s.n > 1 ? `Lihat ${s.n} judul berita` : "Lihat judul berita"}</summary>
+      ${s.heads.map(x => `<div style="margin:6px 0"><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>
+        <div class="muted" style="font-size:12px">${esc(x.source || "")} · ${dmy(x.published)}</div></div>`).join("")}</details>
+  </div>`;
+}
 async function renderStream() {
   const body = $("#subBody");
   try { STREAM = await getJSON("data/stream.json"); } catch (e) { body.innerHTML = `<div class="empty">Stream belum tersedia.</div>`; return; }
   const codes = [...new Set(STREAM.items.map(x => x.code))].sort();
   const F = {ALL: "Semua", BEI: "Resmi BEI", positif: "Positif", negatif: "Negatif"};
-  let items = STREAM.items.filter(x => !streamCode || x.code === streamCode);
+  let items = (STREAM.stories || STREAM.items).filter(x => !streamCode || x.code === streamCode);
   if (hideRoutine) items = items.filter(x => !x.routine);
   if (streamFilter === "BEI") items = items.filter(x => x.official);
   else if (streamFilter !== "ALL") items = items.filter(x => x.tone === streamFilter);
@@ -1420,7 +1441,8 @@ async function renderStream() {
     <div class="seg">${Object.entries(F).map(([k, l]) => `<button data-sf="${k}" class="${streamFilter === k ? "on" : ""}">${l}</button>`).join("")}</div>
     ${up.length ? `<details class="card" ${streamCode ? "open" : ""}><summary style="cursor:pointer;font-weight:650">Kalender 10 hari ke depan (${up.length})</summary>
       ${up.map(e => `<div class="trow"><div><b>${esc(e.code)}</b> ${esc(e.kind)}<div class="n">${esc(e.source)}${e.pattern ? ` · pola: naik ${e.pattern.up}/${e.pattern.n} kali menjelang cum date, rata-rata ${pct(e.pattern.avg_run)}` : ""}</div></div><div class="val">${e.date}</div></div>`).join("")}</details>` : ""}
-    ${items.length ? `<div class="list">${items.slice(0, 80).map(newsItem).join("")}</div>`
+    ${items.length ? `<div class="list">${items.slice(0, 80).map(x => STREAM.stories ? storyItem(x) : newsItem(x)).join("")}</div>
+      <p class="muted" style="font-size:12.5px">Ringkasan disusun otomatis dari judul, jumlah media, dan reaksi harga — bukan dari isi artikel. Buka judul untuk membaca beritanya.</p>`
       : `<div class="empty">Tidak ada berita${streamCode ? " " + streamCode : ""} dengan filter ini dalam 7 hari terakhir.</div>`}
     <div class="h">Reaksi harga per jenis peristiwa</div>
     ${ready.length ? `<div class="card scroll" style="padding:6px 12px"><table><tr><th>Peristiwa</th><th>n</th><th>1 hari</th><th>3 hari</th><th>5 hari</th><th>Naik 5h</th></tr>

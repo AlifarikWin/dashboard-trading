@@ -215,6 +215,77 @@ def reaction(df: pd.DataFrame | None, published: str) -> dict | None:
             "vol_ratio": round(vmax, 2) if vmax else None, "priced_in": abs(move) >= 5}
 
 
+DETAIL = [(r"rights? issue|\bHMETD\b", "rights issue"), (r"private placement", "private placement"),
+          (r"stock split|pemecahan saham", "stock split"), (r"reverse stock", "reverse stock split"),
+          (r"tender offer", "tender offer"), (r"go private", "go private"), (r"delisting", "delisting"),
+          (r"buy ?back|pembelian kembali", "buyback"), (r"dividen interim", "dividen interim"), (r"dividen final", "dividen final"),
+          (r"akuisisi|caplok|ambil alih|kuasai penuh", "akuisisi"), (r"merger|penggabungan", "merger"), (r"divestasi", "divestasi"),
+          (r"\bPKPU\b", "PKPU"), (r"pailit", "pailit"), (r"gagal bayar|default", "gagal bayar"),
+          (r"unusual market activity|\bUMA\b", "UMA"), (r"suspen|gembok", "suspensi"),
+          (r"\bRUPSLB\b|luar biasa", "RUPS luar biasa"), (r"\bRUPST\b|tahunan", "RUPS tahunan"),
+          (r"kuartal III|\bQ3\b|9M|sembilan bulan", "kinerja 9 bulan"), (r"semester|\b1H\b|\bH1\b", "kinerja semester"),
+          (r"target harga", "target harga")]
+FACT = [r"Rp\s?[\d.,]+\s?(?:triliun|miliar|juta|T|M)\b",
+        r"(?:naik|turun|melonjak|anjlok|tumbuh|merosot|melesat|ambles)\s+[\d.,]+\s?(?:%|persen)"]
+
+
+def _detail(titles: list[str]) -> str | None:
+    for rx, lbl in DETAIL:
+        if any(re.search(rx, t, re.I) for t in titles):
+            return lbl
+    return None
+
+
+def _facts(titles: list[str], limit: int = 2) -> list[str]:
+    """Potongan angka pendek dari judul (mis. "Rp1,2 triliun", "naik 25%"), tanpa duplikat."""
+    out = []
+    for t in titles:
+        for rx in FACT:
+            for m in re.finditer(rx, t, re.I):
+                f = m.group(0).strip()
+                if f.lower() not in {x.lower() for x in out}:
+                    out.append(f)
+                if len(out) >= limit:
+                    return out
+    return out
+
+
+def summarize(items: list[dict], frames: dict[str, pd.DataFrame], gap_days: int = 3) -> list[dict]:
+    """Gabungkan berita tentang kejadian yang sama (kode + jenis peristiwa, jeda ≤ gap_days) menjadi satu ringkasan.
+
+    Ringkasan disusun dari data, bukan dari isi artikel: jenis & rincian peristiwa (dari judul), jumlah berita
+    dan media, nada mayoritas, angka yang disebut di judul, serta reaksi harga sejak berita pertama."""
+    groups: dict[tuple, list] = {}
+    for it in sorted(items, key=lambda x: x["published"]):
+        groups.setdefault((it["code"], it["kind"]), []).append(it)
+    out = []
+
+    def flush(cur):
+        if not cur:
+            return
+        first, last = cur[0], cur[-1]
+        titles = [c["title"] for c in cur]
+        tones = {t: sum(1 for c in cur if c["tone"] == t) for t in ("positif", "negatif", "netral")}
+        tone = "positif" if tones["positif"] > tones["negatif"] else "negatif" if tones["negatif"] > tones["positif"] else "netral"
+        heads = sorted(cur, key=lambda c: c["published"], reverse=True)
+        out.append({"id": first["id"], "code": first["code"], "kind": first["kind"], "detail": _detail(titles),
+                    "facts": _facts(titles), "tone": tone, "tones": tones, "n": len(cur),
+                    "sources": len({c.get("source") for c in cur}), "first": first["published"], "last": last["published"],
+                    "reaction": reaction(frames.get(first["code"]), first["published"]),
+                    "routine": first["kind"] in ROUTINE, "official": any(c.get("official") for c in cur),
+                    "heads": [{k: c.get(k) for k in ("title", "url", "source", "published", "official")} for c in heads[:5]]})
+
+    for its in groups.values():
+        cur = []
+        for it in its:
+            if cur and (datetime.fromisoformat(it["published"]) - datetime.fromisoformat(cur[-1]["published"])).days > gap_days:
+                flush(cur)
+                cur = []
+            cur.append(it)
+        flush(cur)
+    return sorted(out, key=lambda x: x["last"], reverse=True)
+
+
 def merge_archive(archive: dict, items: list[dict], keep_days: int = 180) -> dict:
     for it in items:
         if it["id"] not in archive:
