@@ -38,7 +38,11 @@ jobs:
           if [ ! -x "$PYBIN" ]; then
             BASE=""
             # "py" dulu: di Windows, "python3" bisa berupa pintasan Microsoft Store yang bukan Python sungguhan
-            for c in py python python3; do
+            # Service Windows tidak membaca PATH milik akun pengguna, jadi lokasi umum juga dicek langsung.
+            for c in /c/Python312/python.exe /c/Python313/python.exe /c/Python311/python.exe /c/Python314/python.exe \
+                     "/c/Program Files/Python312/python.exe" "/c/Program Files/Python313/python.exe" \
+                     "/c/Program Files/Python311/python.exe" "/c/Program Files/Python314/python.exe" \
+                     py python python3; do
               if command -v "$c" >/dev/null 2>&1 && "$c" -c "import sys; sys.exit(sys.version_info < (3, 10))" >/dev/null 2>&1; then BASE="$c"; break; fi
             done
             if [ -z "$BASE" ]; then echo "::error::Python 3.10+ tidak ditemukan. Pasang Python untuk semua pengguna (All users) dan centang Add to PATH."; exit 1; fi
