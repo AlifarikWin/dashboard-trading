@@ -77,8 +77,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: cache_all
-          key: allstocks-v3-${{ github.run_id }}
-          restore-keys: allstocks-v3-
+          key: allstocks-v4-${{ github.run_id }}
+          restore-keys: allstocks-v4-
 
       - name: Hitung data dashboard
         env:
@@ -109,7 +109,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: cache_all
-          key: allstocks-v3-${{ github.run_id }}
+          key: allstocks-v4-${{ github.run_id }}
 
       - uses: actions/configure-pages@v5
 
