@@ -67,6 +67,23 @@ def add_indicators(df: pd.DataFrame, s: dict) -> pd.DataFrame:
                     (d["Low"] - prev_c).abs()], axis=1).max(axis=1)
     d["atr"] = tr.ewm(alpha=1 / s["atr_period"], adjust=False).mean()
     d["value"] = d["Close"] * d["Volume"]
+    # tren mingguan yang kausal: untuk hari t di minggu W,
+    #   MA10 minggu (berjalan) = (9 close mingguan yang sudah selesai + close hari t) / 10
+    #   MA10 minggu lalu        = rata-rata 10 close mingguan yang sudah selesai sampai minggu W-1
+    wk = d["Close"].resample("W-FRI").last()
+    prev = wk.shift(1)                                    # close minggu yang sudah selesai (W-1, W-2, ...)
+    sum9 = prev.rolling(9, min_periods=7).sum()
+    cnt9 = prev.rolling(9, min_periods=7).count()
+    ma_prev = prev.rolling(10, min_periods=8).mean()
+    key = d.index.to_period("W-FRI").to_timestamp(how="end").normalize()
+    for name, ser in (("_sum9", sum9), ("_cnt9", cnt9), ("_wma_prev", ma_prev)):
+        ser = ser.copy()
+        ser.index = ser.index.normalize()
+        d[name] = ser.reindex(key).values
+    wma_now = (d["_sum9"] + d["Close"]) / (d["_cnt9"] + 1)
+    d["wk_up"] = (d["Close"] > wma_now) & (wma_now > d["_wma_prev"])
+    d["wk_down"] = (d["Close"] < wma_now) & (wma_now < d["_wma_prev"])
+    d = d.drop(columns=["_sum9", "_cnt9", "_wma_prev"])
     return d
 
 
@@ -161,7 +178,12 @@ def evaluate(ticker: str, d: pd.DataFrame, s: dict, risk: dict, progress: float 
     trend_up = price > row["ma_trend"]
     res, sup = row["res"], row["sup"]
 
-    # --- BUY: breakout + volume
+    weekly_down = bool(row.get("wk_down")) if s.get("weekly_filter", True) else False
+    # --- BUY: breakout + volume (tidak melawan tren mingguan)
+    if liquid and trend_up and price > res and rvol >= s["breakout_rvol_min"] and weekly_down:
+        out["reasons"] += [f"breakout harian, tetapi tren mingguan turun — tunggu tren mingguan pulih"]
+        out["signal"] = "WATCH"
+        return out
     if liquid and trend_up and price > res and rvol >= s["breakout_rvol_min"]:
         if price > res * (1 + s["max_extension_pct"] / 100):
             out["reasons"].append(f"breakout sudah >{s['max_extension_pct']:g}% di atas resistance — jangan dikejar")

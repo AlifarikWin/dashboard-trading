@@ -48,7 +48,8 @@
     "max_sl_pct": 8.0,
     "tp_r": 2.0,
     "tp2_r": 3.0,
-    "limit_slippage_ticks": 2
+    "limit_slippage_ticks": 2,
+    "weekly_filter": true
   },
   "risk": {
     "capital_idr": 10000000,

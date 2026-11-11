@@ -2,10 +2,9 @@ name: perbarui-dashboard
 
 on:
   schedule:
-    # Waktu cron GitHub memakai UTC (WIB = UTC+7). Jadwal GitHub bisa terlambat beberapa menit.
-    # Menit sengaja dibuat tidak bulat: jadwal di menit :00/:15/:30 paling sering ditunda GitHub.
+    # Waktu cron GitHub memakai UTC (WIB = UTC+7). Menit sengaja tidak bulat: jadwal :00/:15/:30 paling sering ditunda.
     # Untuk jadwal yang lebih andal, picu juga dari cron-job.org (lihat README).
-    - cron: "41 23 * * 0-4"           # 06.41 WIB Senin–Jumat: Daftar Pagi siap sebelum bursa buka
+    - cron: "41 23 * * 0-4"           # 06.41 WIB Senin–Jumat: Daftar Pagi + notifikasi pagi
     - cron: "7,22,37,52 2-8 * * 1-5"  # tiap 15 menit, 09.07–15.52 WIB
     - cron: "43 10 * * 1-5"           # 17.43 WIB: data penutupan + backtest swing
   push:
@@ -13,12 +12,12 @@ on:
   workflow_dispatch:
     inputs:
       heavy:
-        description: "Sertakan backtest swing (lebih lama)"
+        description: "Sertakan backtest swing & perbarui fundamental (lebih lama)"
         type: boolean
         default: false
 
 permissions:
-  contents: read
+  contents: write   # menyimpan track record & arsip ke branch `records`
   pages: write
   id-token: write
 
@@ -40,14 +39,17 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: Pulihkan cache data BEI
-        uses: actions/cache/restore@v4
-        with:
-          path: cache
-          key: idx-${{ github.run_id }}
-          restore-keys: idx-
+      - name: Uji otomatis
+        run: python -m pytest -q tests
+
+      - name: Ambil penyimpanan permanen (branch records)
+        run: python store.py pull store
 
       - name: Hitung data dashboard
+        env:
+          STORE: store
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
         run: |
           HEAVY=""
           H=$(TZ=Asia/Jakarta date +%H)
@@ -57,12 +59,9 @@ jobs:
           fi
           python build.py --out site $HEAVY
 
-      - name: Simpan cache data BEI
+      - name: Simpan penyimpanan permanen
         if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: cache
-          key: idx-${{ github.run_id }}
+        run: python store.py push store "data $(TZ=Asia/Jakarta date '+%Y-%m-%d %H:%M') WIB"
 
       - uses: actions/configure-pages@v5
 
@@ -79,3 +78,17 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  kabari-jika-gagal:
+    needs: [build, deploy]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -n "$NTFY_TOPIC" ]; then
+            curl -s -H "Title: Dashboard gagal diperbarui" -H "Tags: warning" -H "Priority: high" \
+              -H "Click: $RUN_URL" -d "Pembaruan data gagal. Ketuk untuk melihat log." "https://ntfy.sh/$NTFY_TOPIC"
+          fi

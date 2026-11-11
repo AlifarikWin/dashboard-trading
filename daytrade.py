@@ -27,8 +27,9 @@ DEFAULTS = {
 }
 
 
-def features(panel: pd.DataFrame) -> pd.DataFrame:
-    """Fitur per saham per hari. Semua kausal (hanya memakai data sampai hari itu)."""
+def features(panel: pd.DataFrame, ihsg: pd.Series | None = None) -> pd.DataFrame:
+    """Fitur per saham per hari. Semua kausal (hanya memakai data sampai hari itu).
+    ihsg: close IHSG harian (index tanggal) untuk relative strength."""
     p = panel.sort_values(["code", "date"]).copy()
     g = p.groupby("code", group_keys=False)
     p["fnet"] = p["fbuy"] - p["fsell"]
@@ -49,6 +50,14 @@ def features(panel: pd.DataFrame) -> pd.DataFrame:
     p["close_pos"] = ((p["close"] - p["low"]) / rng).fillna(0.5)
     p["chg_pct"] = (p["close"] / p["prev"].replace(0, np.nan) - 1) * 100
     p["rvol"] = p["volume"] / p["vol_ma20"]
+    # relative strength 20 hari: return saham dikurangi return IHSG pada periode yang sama
+    p["ret20"] = g["close"].transform(lambda s: s / s.shift(20) - 1) * 100
+    if ihsg is not None and len(ihsg) > 25:
+        ir = (ihsg / ihsg.shift(20) - 1) * 100
+        ir.index = pd.to_datetime(ir.index).normalize()
+        p["rs20"] = p["ret20"] - p["date"].map(ir)
+    else:
+        p["rs20"] = np.nan
     return p
 
 
@@ -63,6 +72,7 @@ def score_rows(f: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     s["volume_naik"] = f["rvol"] >= 1.5
     s["tren"] = (f["close"] > f["ma20"]) & ((f["ma50"].isna()) | (f["ma20"] > f["ma50"]))
     s["akumulasi"] = f["obv_up"].fillna(False).astype(bool)
+    s["rs_kuat"] = f["rs20"] > 0  # info & filter opsional; tidak menambah skor
     f = f.copy()
     f["score"] = (10 * s["asing_hari_ini"] + 15 * s["asing_beruntun"] + 10 * s["asing_5hari"]
                   + 15 * s["tutup_kuat"] + 10 * s["naik_wajar"] + 15 * s["volume_naik"]
@@ -72,6 +82,8 @@ def score_rows(f: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     excl = f["remarks"].apply(lambda r: any(x and x in r for x in c["exclude_remarks"]))
     f["eligible"] = ((f["close"] >= c["min_price"]) & (f["val_ma20"] >= c["min_value_idr"])
                      & (f["chg_pct"] < c["max_change_pct"]) & s["tren"] & ~excl)
+    if c.get("rs_filter") and f["rs20"].notna().any():
+        f["eligible"] &= s["rs_kuat"]
     return pd.concat([f, s], axis=1)
 
 
@@ -84,6 +96,7 @@ LABELS = {
     "volume_naik": "Volume ≥ 1,5× rata-rata 20 hari",
     "tren": "Di atas MA20 (tren pendek naik)",
     "akumulasi": "OBV 10 hari naik (akumulasi)",
+    "rs_kuat": "Lebih kuat dari IHSG (20 hari)",
 }
 
 
@@ -105,10 +118,14 @@ def plan(row: pd.Series, cfg: dict, capital: float, risk_pct: float, fee_total_p
             "tick": tick_size(trigger)}
 
 
-def morning_list(panel: pd.DataFrame, cfg: dict, capital: float, risk_pct: float, fee_total_pct: float) -> dict:
+def morning_list(panel: pd.DataFrame, cfg: dict, capital: float, risk_pct: float, fee_total_pct: float,
+                 ihsg: pd.Series | None = None, blocked: set[str] | None = None) -> dict:
+    """blocked: kode saham yang dikecualikan (notasi khusus, UMA, suspensi, data tidak valid)."""
     if panel.empty:
         return {"date": None, "picks": [], "scanned": 0}
-    sc = score_rows(features(panel), cfg)
+    sc = score_rows(features(panel, ihsg), cfg)
+    if blocked:
+        sc.loc[sc["code"].isin(blocked), "eligible"] = False
     last_date = sc["date"].max()
     day = sc[sc["date"] == last_date]
     c = {**DEFAULTS, **(cfg or {})}
@@ -123,6 +140,7 @@ def morning_list(panel: pd.DataFrame, cfg: dict, capital: float, risk_pct: float
             "rvol": round(float(r["rvol"]), 2) if pd.notna(r["rvol"]) else None,
             "fnet_val": float(r["fnet_val"]), "fnet5": float(r["fnet5"]) if pd.notna(r["fnet5"]) else 0.0,
             "fstreak": int(r["fstreak"]),
+            "rs20": round(float(r["rs20"]), 2) if pd.notna(r["rs20"]) else None,
             "checks": [{"label": LABELS[k], "ok": bool(r[k])} for k in LABELS],
             "plan": plan(r, cfg, capital, risk_pct, fee_total_pct),
         })
@@ -177,40 +195,45 @@ def _stats(trades: list[dict], days: int) -> dict:
     }
 
 
-def backtest(panel: pd.DataFrame, cfg: dict, fee_total_pct: float, sc: pd.DataFrame | None = None) -> dict:
+def backtest(panel: pd.DataFrame, cfg: dict, fee_total_pct: float, sc: pd.DataFrame | None = None,
+             ihsg: pd.Series | None = None) -> dict:
     """Uji rencana pada seluruh histori. Konservatif: jika SL dan TP sama-sama tersentuh di hari yang sama,
     dihitung SL. Sisa posisi ditutup di harga penutupan."""
-    sc = sc if sc is not None else score_rows(features(panel), cfg)
+    sc = sc if sc is not None else score_rows(features(panel, ihsg), cfg)
     return _stats(_simulate(sc, cfg, fee_total_pct), sc["date"].nunique())
 
 
-GRID = {"min_score": [60, 70, 80], "tp_pct": [2.0, 3.0, 4.0], "sl_pct": [1.5, 2.0, 3.0]}
+GRID = {"min_score": [60, 70, 80], "tp_pct": [2.0, 3.0, 4.0], "sl_pct": [1.5, 2.0, 3.0], "rs_filter": [False, True]}
 
 
 def optimize(panel: pd.DataFrame, cfg: dict, fee_total_pct: float, train_frac: float = 0.6,
-             min_train_trades: int = 15, min_test_trades: int = 8) -> dict:
+             min_train_trades: int = 15, min_test_trades: int = 8, ihsg: pd.Series | None = None) -> dict:
     """Penyetelan otomatis dengan validasi walk-forward:
     1) pilih setelan terbaik (rata-rata hasil per transaksi) di periode LATIH (60% awal),
     2) uji setelan itu di periode UJI (40% akhir) yang tidak dipakai untuk memilih,
     3) setelan dipakai hanya jika hasil di periode UJI positif setelah fee."""
-    sc = score_rows(features(panel), cfg)
+    feats = features(panel, ihsg)
+    has_rs = feats["rs20"].notna().any()
+    sc_by = {rs: score_rows(feats, {**(cfg or {}), "rs_filter": rs}) for rs in ([False, True] if has_rs else [False])}
+    sc = sc_by[False]
     n = sc["date"].nunique()
     split = 30 + int((n - 31) * train_frac)
     results = []
-    for ms in GRID["min_score"]:
-        for tp in GRID["tp_pct"]:
-            for sl in GRID["sl_pct"]:
-                c = {**(cfg or {}), "min_score": ms, "tp_pct": tp, "sl_pct": sl}
-                tr = _stats(_simulate(sc, c, fee_total_pct, 30, split), split - 30)
-                results.append({"min_score": ms, "tp_pct": tp, "sl_pct": sl,
-                                "train_trades": tr["trades"], "train_avg": tr.get("avg_pct")})
+    for rs, scx in sc_by.items():
+        for ms in GRID["min_score"]:
+            for tp in GRID["tp_pct"]:
+                for sl in GRID["sl_pct"]:
+                    c = {**(cfg or {}), "min_score": ms, "tp_pct": tp, "sl_pct": sl, "rs_filter": rs}
+                    tr = _stats(_simulate(scx, c, fee_total_pct, 30, split), split - 30)
+                    results.append({"min_score": ms, "tp_pct": tp, "sl_pct": sl, "rs_filter": rs,
+                                    "train_trades": tr["trades"], "train_avg": tr.get("avg_pct")})
     ok = [r for r in results if r["train_trades"] >= min_train_trades]
     if not ok:
         return {"status": "data_kurang", "applied": False, "days": n, "grid": results,
                 "note": "Transaksi di periode latih terlalu sedikit untuk memilih setelan."}
     best = max(ok, key=lambda r: (r["train_avg"], r["train_trades"]))
     c = {**(cfg or {}), **{k: best[k] for k in GRID}}
-    test = _stats(_simulate(sc, c, fee_total_pct, split, None), n - split)
+    test = _stats(_simulate(sc_by[best["rs_filter"]], c, fee_total_pct, split, None), n - split)
     applied = test["trades"] >= min_test_trades and test.get("avg_pct", -1) > 0
     status = "layak" if applied else ("data_kurang" if test["trades"] < min_test_trades else "tidak_layak")
     return {"status": status, "applied": applied, "days": n,

@@ -156,3 +156,11 @@ def test_check_stock_position_math():
     assert p["pl_pct"] < 0 and p["need_to_breakeven_pct"] > 29
     assert p["cut_loss"] < price and p["cut_loss"] % st.tick_size(p["cut_loss"]) == 0
     assert p["status"] in ("TREN RUSAK", "MELEMAH", "MASIH SEHAT")
+
+
+def test_weekly_trend_has_no_lookahead():
+    df = synth(n=300, seed=11)
+    full = st.add_indicators(df, S)[["wk_up", "wk_down"]]
+    for cut in (150, 203, 250):  # potong di tengah minggu juga
+        part = st.add_indicators(df.iloc[:cut], S)[["wk_up", "wk_down"]]
+        assert (full.iloc[:cut].values == part.values).all(), cut

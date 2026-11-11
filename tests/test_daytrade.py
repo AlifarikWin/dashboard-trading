@@ -3,6 +3,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -96,7 +97,7 @@ def test_optimize_applies_only_when_out_of_sample_positive(monkeypatch):
     monkeypatch.setattr(dt, "_simulate", fake)
     o = dt.optimize(panel, CFG, 0.4)
     assert o["applied"] and o["status"] == "layak"
-    assert o["params"] == {"min_score": 70, "tp_pct": 3.0, "sl_pct": 1.5}
+    assert o["params"] == {"min_score": 70, "tp_pct": 3.0, "sl_pct": 1.5, "rs_filter": False}
 
     monkeypatch.setattr(dt, "_simulate", lambda sc, c, fee, day_from=30, day_to=None:
                         [{"date": "d", "code": "X", "entry": 1, "exit": 1, "why": "SL",
@@ -117,3 +118,20 @@ def test_static_build_demo(tmp_path, monkeypatch):
     chk = json.loads((d / "check.json").read_text())
     assert "atr" in next(iter(chk["stocks"].values()))["levels"]
     assert isinstance(meta["errors"], list)
+
+
+def test_relative_strength_feature_and_filter():
+    panel = idx.demo_panel(90, 40, end=date(2026, 11, 9))
+    dates = sorted(panel["date"].unique())
+    ihsg = pd.Series(np.linspace(7000, 7700, len(dates)), index=pd.DatetimeIndex(dates))
+    f = dt.features(panel, ihsg)
+    row = f.dropna(subset=["rs20"]).iloc[-1]
+    i = ihsg.index.get_loc(row["date"])
+    expected = row["ret20"] - (ihsg.iloc[i] / ihsg.iloc[i - 20] - 1) * 100
+    assert abs(row["rs20"] - expected) < 1e-9
+    on = dt.score_rows(f, {**CFG, "rs_filter": True})
+    off = dt.score_rows(f, {**CFG, "rs_filter": False})
+    assert on["eligible"].sum() <= off["eligible"].sum()
+    assert not (on["eligible"] & ~(on["rs20"] > 0)).any()
+    m = dt.morning_list(panel, CFG, 1e7, 1, 0.4, ihsg=ihsg, blocked={panel["code"].iloc[0]})
+    assert panel["code"].iloc[0] not in {p["code"] for p in m["picks"]}

@@ -36,6 +36,7 @@ class IdxClient:
         self.cache.mkdir(parents=True, exist_ok=True)
         self._session = None
         self.last_error = ""
+        self.blocked = False  # True setelah ditolak (HTTP 403): berhenti mencoba, pakai cache saja
 
     def _sess(self):
         if self._session is None:
@@ -50,10 +51,14 @@ class IdxClient:
         f = self.cache / f"{d:%Y%m%d}.json"
         if f.exists() and not refresh:
             return json.loads(f.read_text())
+        if self.blocked:
+            return None
         try:
             r = self._sess().get(SUMMARY_URL.format(d=f"{d:%Y%m%d}"), headers=HEADERS, timeout=30)
             if r.status_code != 200:
                 self.last_error = f"HTTP {r.status_code}"
+                if r.status_code in (401, 403, 429):
+                    self.blocked = True
                 return None
             rows = r.json().get("data") or []
         except Exception as e:
@@ -77,14 +82,15 @@ class IdxClient:
                 cached = (self.cache / f"{d:%Y%m%d}.json").exists()
                 rows = self.day(d)
                 if rows is None:
-                    errors.append(f"{d:%Y-%m-%d}")
-                    if len(errors) >= 3 and not frames:
-                        break  # sumber tidak bisa diakses, hentikan cepat
+                    if not self.blocked or not errors:
+                        errors.append(f"{d:%Y-%m-%d}")
+                    if len(errors) >= 3 and not frames and not any(self.cache.glob("*.json")):
+                        break  # sumber tidak bisa diakses dan tidak ada cache
                 elif rows:
                     df = pd.DataFrame(rows)
                     df["date"] = pd.Timestamp(d)
                     frames.append(df)
-                if not cached:
+                if not cached and not self.blocked:
                     time.sleep(delay)
             d -= timedelta(days=1)
         if not frames:
@@ -132,3 +138,36 @@ def demo_panel(n_days: int = 90, n_stocks: int = 120, end: date | None = None, s
                          "low": min(lo[i], c[i], op[i]), "close": c[i], "prev": prev[i], "volume": vol[i],
                          "value": vol[i] * c[i], "freq": vol[i] / 500, "fbuy": fb[i], "fsell": fs[i], "remarks": ""})
     return to_panel(pd.DataFrame(rows))
+
+
+# ----------------------------------------------------------------------------
+# Endpoint tambahan (dipakai runner laptop): screener resmi, pengumuman, kalender, suspensi
+# ----------------------------------------------------------------------------
+def _get_json(client: IdxClient, url: str):
+    r = client._sess().get(url, headers=HEADERS, timeout=40)
+    if r.status_code != 200:
+        raise RuntimeError(f"HTTP {r.status_code} {url.split('?')[0]}")
+    return r.json()
+
+
+def screener(client: IdxClient) -> list[dict]:
+    """Notasi khusus, status, tanggal UMA, aksi korporasi, sektor, rasio — seluruh saham."""
+    j = _get_json(client, BASE_URL + "/support/stock-screener/api/v1/stock-screener/get?Sector=&SubSector=")
+    return j.get("results") or []
+
+
+def announcements(client: IdxClient, date_from: date, date_to: date) -> list[dict]:
+    url = (BASE_URL + f"/primary/ListedCompany/GetAnnouncement?kodeEmiten=&indexFrom=0&pageSize=500"
+           f"&dateFrom={date_from:%Y%m%d}&dateTo={date_to:%Y%m%d}&lang=id")
+    j = _get_json(client, url)
+    return j.get("Replies") or []
+
+
+def calendar(client: IdxClient, d: date) -> list[dict]:
+    j = _get_json(client, BASE_URL + f"/primary/Home/GetCalendar?range=m&date={d:%Y%m%d}")
+    return j.get("Results") or []
+
+
+def suspensions(client: IdxClient) -> list[dict]:
+    j = _get_json(client, BASE_URL + "/primary/Home/GetSuspendData?resultCount=200")
+    return j.get("Results") or []

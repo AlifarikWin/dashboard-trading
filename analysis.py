@@ -309,3 +309,47 @@ def card_zones(a: dict) -> dict:
     lv = a["levels"]
     return {"buy_zone": lv.get("buy_zone"), "sell_zone": lv.get("sell_zone"),
             "breakout": lv["breakout"]["level"], "breakdown": lv["breakdown"]["level"]}
+
+
+# ----------------------------------------------------------------------------
+# Relative strength terhadap IHSG
+# ----------------------------------------------------------------------------
+def rs_info(df: pd.DataFrame, ihsg: pd.DataFrame | None) -> dict | None:
+    if ihsg is None or len(ihsg) < 61 or len(df) < 61:
+        return None
+    a = df["Close"]
+    b = ihsg["Close"].reindex(a.index).ffill()
+    out = {}
+    for n in (20, 60):
+        if b.iloc[-n - 1] and not np.isnan(b.iloc[-n - 1]):
+            rs_ = (a.iloc[-1] / a.iloc[-n - 1] - 1) * 100
+            ri = (b.iloc[-1] / b.iloc[-n - 1] - 1) * 100
+            out[f"ret{n}"] = round(float(rs_), 2)
+            out[f"ihsg{n}"] = round(float(ri), 2)
+            out[f"rs{n}"] = round(float(rs_ - ri), 2)
+    return out or None
+
+
+def enrich_technical(a: dict, wk_up: bool | None, wk_down: bool | None, rs: dict | None, sector: dict | None) -> None:
+    """Tambahkan tren mingguan & relative strength ke ringkasan teknikal."""
+    items = a["technical"]["items"]
+    if wk_up is not None:
+        items.insert(1, {"label": "Tren mingguan", "value": "Naik" if wk_up else "Turun" if wk_down else "Datar",
+                         "tone": "good" if wk_up else "bad" if wk_down else "warn",
+                         "note": "Close vs rata-rata 10 minggu dan arahnya"})
+    if rs:
+        v = rs.get("rs20")
+        items.append({"label": "Kekuatan vs IHSG (20 hari)", "value": f"{v:+.1f} poin%".replace(".", ","),
+                      "tone": "good" if v > 0 else "bad",
+                      "note": f"Saham {rs['ret20']:+.1f}% vs IHSG {rs['ihsg20']:+.1f}%".replace(".", ",")})
+        if "rs60" in rs:
+            v6 = rs["rs60"]
+            items.append({"label": "Kekuatan vs IHSG (60 hari)", "value": f"{v6:+.1f} poin%".replace(".", ","),
+                          "tone": "good" if v6 > 0 else "bad",
+                          "note": f"Saham {rs['ret60']:+.1f}% vs IHSG {rs['ihsg60']:+.1f}%".replace(".", ",")})
+    if sector and sector.get("n", 0) >= 2:
+        sv = sector["avg_ret20"]
+        items.append({"label": f"Sektor ({sector['name']})", "value": f"{sv:+.1f}% / 20 hari".replace(".", ","),
+                      "tone": "good" if sv > 0 else "bad",
+                      "note": f"Rata-rata {sector['n']} saham sektor yang sama di watchlist"})
+    a["rs"] = rs
