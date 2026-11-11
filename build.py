@@ -235,6 +235,8 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
         except Exception as e:
             errors.append(f"Analisis {t}: {type(e).__name__}")
     write(out, "analysis/index", sorted(alist, key=lambda x: x["ticker"]))
+    fund_ok = sum(1 for t in frames if an.fundamental(funds.get(t), 1.0).get("available"))
+    coverage = {"analysis": len(alist), "fundamental": fund_ok, "of": len(frames)}
     for r in rows:
         r["zones"] = zmap.get(r["ticker"])
     for r in radars:
@@ -288,6 +290,7 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
             write(out, "backtest", {"pending": True})
 
     meta["build_seconds"] = round(time.time() - t0, 1)
+    meta["coverage"] = coverage
     meta["errors"] = errors
     write(out, "meta", meta)
     return meta
