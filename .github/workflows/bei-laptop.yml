@@ -64,6 +64,12 @@ jobs:
           & $env:PY store.py pull store
           exit $LASTEXITCODE
 
+      - name: Diagnosis akses BEI
+        continue-on-error: true
+        run: |
+          $ErrorActionPreference = 'Continue'
+          & $env:PY diag_bei.py
+
       - name: Unduh data resmi BEI
         run: |
           $ErrorActionPreference = 'Continue'
