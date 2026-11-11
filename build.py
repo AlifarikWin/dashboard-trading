@@ -35,6 +35,7 @@ import notify
 import risk as rk
 import track
 import universe as uni
+import bsjp
 import strategy as st
 from data import WIB
 
@@ -263,6 +264,19 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
                 ustate = uni.build(all_dir, listing, ufr, ihsg, cfg, regime, today, detail, div_stats, nxt_u)
                 ustate["seconds"] = round(time.time() - tu, 1)
                 ustate["demo"] = demo  # cache demo tidak boleh dipakai oleh build data asli
+                try:  # BSJP: uji 1 tahun, daftar final dari bar terakhir, track record
+                    ublk = {r["c"] for r in _read_json(all_dir / "universe.json", {"rows": []})["rows"] if r.get("blk")}
+                    bstats, bbase = bsjp.evaluate_history(ufr, fee)
+                    bfinal = bsjp.candidates_daily(ufr, {c: v.get("name") for c, v in listing.items()}, ublk,
+                                                   last_close or today)
+                    (all_dir / "bsjp.json").write_text(json.dumps(uni._clean({"stats": bstats, "base": bbase, "final": bfinal}),
+                                                                  ensure_ascii=False), encoding="utf-8")
+                    if not demo:
+                        bsjp.save_snapshot(store, bfinal, bstats.get("status"))
+                        bsjp.evaluate_snapshots(store, ufr, fee)
+                except Exception as e:
+                    traceback.print_exc()
+                    errors.append(f"BSJP: {type(e).__name__}")
                 (all_dir / "state.json").write_text(json.dumps(ustate))
                 (all_dir / ".updated").write_text(now.isoformat())
         except Exception as e:
@@ -528,6 +542,7 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
                         "ch": round(float(df["Close"].iloc[-1] / df["Close"].iloc[-2] - 1) * 100, 2), "d": str(df.index[-1].date())}
     # gerak hari ini (harga terkini seluruh emiten): saat bursa buka, istirahat, dan setelah tutup
     mv = {"market": mstatus, "updated": None, "items": [], "delay_min": None}
+    qs = {}
     if uindex["rows"]:
         try:
             qs = uni.demo_quotes(uindex["rows"], int(now.timestamp() // 900)) if demo else uni.live_quotes()
@@ -540,6 +555,30 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
             traceback.print_exc()
             errors.append(f"Gerak hari ini: {type(e).__name__}")
     write(out, "movers", mv)
+
+    # BSJP: daftar sementara menjelang penutupan, daftar final setelah tutup, pemantauan besok pagi
+    bj = _read_json(all_dir / "bsjp.json", {})
+    final = bj.get("final") or {}
+    hm = now.hour * 60 + now.minute
+    live_session = mv.get("session") == str(today)
+    bs = {"stats": bj.get("stats"), "final": final, "phase": "final", "provisional": None, "monitor": None,
+          "market": mstatus, "updated": now.strftime("%H:%M"), "delay_min": mv.get("delay_min")}
+    try:
+        names = {r["c"]: r["n"] for r in uindex["rows"]}
+        ublk = {r["c"] for r in uindex["rows"] if r.get("blk")}
+        if mstatus in ("buka", "istirahat") and hm >= 15 * 60 and qs and live_session and bj.get("base"):
+            bs["phase"] = "sore"
+            bs["provisional"] = bsjp.candidates_live(qs, bj["base"], names, ublk, progress, today)
+        elif final.get("date") and final["date"] < str(today) and mstatus in ("buka", "istirahat") and live_session:
+            bs["phase"] = "pagi"
+            bs["monitor"] = bsjp.monitor(final.get("up", []), qs)
+        elif final.get("date") and final["date"] < str(today) and mstatus == "pra-buka":
+            bs["phase"] = "pra-buka"
+        bs["track"] = bsjp.track_summary(store)
+    except Exception as e:
+        traceback.print_exc()
+        errors.append(f"BSJP: {type(e).__name__}")
+    write(out, "bsjp", bs)
     write(out, "universe", {"date": uindex.get("date"), "rows": sorted(urows.values(), key=lambda r: r["c"]),
                             "watchlist": cfg["watchlist"], "state": ustate, "div": {c: [v["up"], v["n"], v["avg_run"]] for c, v in div_stats.items()}})
     fund_ok = sum(1 for t in frames if an.fundamental(funds.get(t), 1.0).get("available"))
@@ -587,6 +626,20 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
                 body = ("JANGAN TRADING: " + ", ".join(stops)) if stops else \
                     "\n".join(f"{p['code']}: beli ≥ {p['plan']['trigger']}, SL {p['plan']['sl']}, TP {p['plan']['tp']}" for p in picks)
                 once(f"pagi-{target}", f"Daftar Pagi {target}", body, tags="sunrise", click=url)
+            prov = (bs.get("provisional") or {}).get("up") or []
+            if bs.get("phase") == "sore" and 15 * 60 + 25 <= hm < 15 * 60 + 58:
+                stat = (bs.get("stats") or {}).get("status")
+                head = "" if stat == "layak" else "UJI HISTORIS BELUM POSITIF — jangan pakai uang sungguhan.\n"
+                dl = f"±{mv['delay_min']} menit" if mv.get("delay_min") else "tertunda"
+                body = head + (f"Data harga {dl}. Beli 15.50–16.00, jual besok 09.00–09.15:\n" +
+                               "\n".join(f"{p['c']} ≤ {p['plan']['buy_limit']:,.0f} ({p['chg']:+.1f}%)".replace(",", ".") for p in prov)
+                               if prov else "Tidak ada saham yang memenuhi syarat BSJP sore ini.")
+                key = "bsjp1" if hm < 15 * 60 + 40 else "bsjp2"
+                codes = ",".join(p["c"] for p in prov)
+                prev_codes = once.sent.get(f"bsjp-codes-{today}", "|").split("|", 1)[1]
+                if key == "bsjp1" or codes != prev_codes:
+                    once(f"{key}-{today}", f"BSJP sementara {now:%H:%M}", body, tags="hourglass", click=url + "#besok")
+                once.sent[f"bsjp-codes-{today}"] = f"{now.isoformat(timespec='minutes')}|{codes}"
             if now.weekday() == 0 and mstatus in ("pra-buka", "buka"):
                 title, body = track.weekly_report(trk.get("days", []), today, (tuning or {}).get("status"),
                                                   regime.get("status"), coming)
@@ -678,6 +731,12 @@ def main() -> None:
                           "analysis_mb": round(sum(f.stat().st_size for f in files) / 1e6, 1),
                           "blocked": sum(r["blk"] for r in rows), "flags": kinds, "with_fundamental": fund,
                           "with_dividend_pattern": len(u.get("div", {})),
+                          "bsjp": (lambda b: {"phase": b.get("phase"), "status": (b.get("stats") or {}).get("status"),
+                                              "up": (b.get("stats") or {}).get("up"), "recent": (b.get("stats") or {}).get("up_recent"),
+                                              "baseline": (b.get("stats") or {}).get("baseline"), "down": (b.get("stats") or {}).get("down"),
+                                              "final": [(x["c"], x["chg"]) for x in (b.get("final") or {}).get("up", [])],
+                                              "final_date": (b.get("final") or {}).get("date")})(
+                              json.loads((out / "data" / "bsjp.json").read_text(encoding="utf-8"))),
                           "movers": (lambda m: {"items": len(m["items"]), "session": m.get("session"), "delay_min": m.get("delay_min"),
                                                 "top": [(x["c"], x["ch"]) for x in m["items"][:3]]})(
                               json.loads((out / "data" / "movers.json").read_text(encoding="utf-8"))), "sectors": len({r["s"] for r in rows if r["s"]}),

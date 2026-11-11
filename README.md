@@ -51,6 +51,18 @@ Pemisahan latih dan uji ini mencegah setelan yang hanya "kebetulan cocok" dengan
 
 Parameter day trade diatur di `config.json` bagian `daytrade`. Isi `"auto_tune": false` untuk mematikan penyetelan otomatis.
 
+## Kandidat Besok: BSJP + Day Trade
+Dua metode ditampilkan berdampingan, dengan kesimpulan metode mana yang hasil ujinya lebih baik setelah *fee*.
+
+**BSJP (Beli Sore Jual Pagi).** Syarat sore hari: ditutup di ≥ 80% rentang harian, volume ≥ 1,5× rata-rata 20 hari, naik 2% hingga (batas ARA − 3%) agar tidak terkunci ARA, *close* > MA20 > MA50, nilai transaksi rata-rata ≥ Rp5 miliar, dan tanpa penanda risiko. Menembus *high* 20 hari menambah skor; ditampilkan 5 skor tertinggi.
+- **15.00–16.00:** daftar sementara dari harga *screener* (tertunda ±10 menit), dikirim ke HP sekitar 15.33 dan diperbarui sekitar 15.48 bila berubah. Beli di sesi pra-penutupan 15.50–16.00, jual besok 09.00–09.15. Jika besok dibuka turun, tetap jual.
+- **Setelah tutup:** daftar final dari data penutupan, disimpan untuk Track Record BSJP.
+- **Besok pagi:** status tiap kandidat: gap naik dan bertahan, gap naik tetapi tergerus, atau dibuka turun.
+- **Bukti:** uji 1 tahun seluruh emiten (beli di *close*, jual di *open* besok, *fee* dipotong, 5 teratas per hari), 60 hari terakhir, dan pembanding rata-rata semua saham likuid. Status **LAYAK** hanya jika hasil 1 tahun dan 60 hari terakhir sama-sama positif dengan ≥ 30 transaksi; selain itu saran lot menjadi 0.
+- **Potensi turun:** ditutup di ≤ 20% rentang harian, volume besar, turun ≥ 2%, di bawah MA20. Ditampilkan sebagai peringatan untuk saham yang Anda pegang.
+
+**Day Trade** adalah Daftar Pagi (lihat di atas). Batas transaksi harian dan rem rugi berlaku untuk gabungan kedua metode.
+
 ## Menu lain
 - **Gerak Hari Ini:** saham yang naik, turun, ramai volume, atau gap naik dan bertahan sejak pembukaan, untuk seluruh emiten (harga dari *screener* Yahoo, tertunda ±10–15 menit, diperbarui tiap 15 menit). Saringan bawaan: likuid dan tren harian bagus. Saham yang sudah naik ≥ 7% ditandai "jangan kejar", dan yang menyentuh ARA/ARB ditandai.
 - **Semua Saham:** seluruh emiten yang bisa disaring (tren naik, dekat level tembus, di area beli, lebih kuat dari IHSG, volume melonjak, fundamental kuat, di bawah nilai wajar, pola dividen) dan diurutkan. Saham dengan penanda risiko disembunyikan secara bawaan.
