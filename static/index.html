@@ -419,7 +419,7 @@ function renderAll() {
   if (META) {
     const age = Math.round((Date.now() - Date.parse(META.generated_at.replace(" WIB", "+07:00").replace(" ", "T"))) / 60000);
     if (age > 40 && META.market.status === "buka") b += `<div class="banner warn">Data terakhir diperbarui ${age} menit lalu. Jadwal GitHub Actions kadang terlambat.</div>`;
-    (META.errors || []).forEach(e => b += `<div class="banner warn">${esc(e)}</div>`);
+    (META.errors || []).filter(e => !e.includes("BEI")).forEach(e => b += `<div class="banner warn">${esc(e)}</div>`);  // error BEI tampil di Daftar Pagi
   }
   if (d.missing.length) b += `<div class="banner warn">Data tidak tersedia: ${d.missing.join(", ")}</div>`;
   $("#banners").innerHTML = b;

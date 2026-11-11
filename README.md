@@ -79,9 +79,9 @@ Saham menjadi kandidat jika skornya ≥ 60, trennya naik, belum menembus *resist
 
 | Waktu (WIB) | Isi pembaruan |
 |---|---|
-| 06.30, Senin–Jumat | Daftar Pagi siap sebelum bursa buka |
-| Tiap 15 menit, 09.00–15.45 | Harga, sinyal, radar, dan status saham Daftar Pagi (terpicu / TP / SL) |
-| 17.30, Senin–Jumat | Data penutupan BEI, penyetelan otomatis, dan backtest swing |
+| 06.41, Senin–Jumat | Daftar Pagi siap sebelum bursa buka |
+| Tiap 15 menit, 09.07–15.52 | Harga, sinyal, radar, dan status saham Daftar Pagi (terpicu / TP / SL) |
+| 17.43, Senin–Jumat | Data penutupan, penyetelan otomatis, dan backtest swing |
 
 Setiap *push* ke `main` dan tombol **Run workflow** di tab Actions juga memicu pembaruan.
 
@@ -90,6 +90,25 @@ Catatan hosting:
 - GitHub Pages gratis hanya untuk repositori publik, jadi situs ini **tanpa password**. Posisi, jurnal, dan pengaturan tetap tersimpan di *browser* Anda sendiri, tidak di situs.
 - Cek Saham hanya untuk saham *watchlist* dan saham di Daftar Pagi, karena tidak ada server yang bisa dipanggil sewaktu-waktu.
 - GitHub bisa menonaktifkan jadwal Actions pada repositori yang tidak ada aktivitasnya selama 60 hari. Jika itu terjadi, aktifkan lagi dari tab Actions.
+
+### Jadwal yang andal: picu dari cron-job.org (gratis)
+Jadwal bawaan GitHub Actions sering terlambat atau dilewati, terutama di repositori baru. Untuk pembaruan tiap 15 menit yang konsisten, picu *workflow* dari layanan cron eksternal:
+
+1. **Buat token GitHub** di github.com/settings/personal-access-tokens/new (*Fine-grained token*):
+   - *Repository access:* **Only select repositories** → `dashboard-trading`.
+   - *Permissions → Repository permissions → Actions:* **Read and write**. Izin lain tidak perlu.
+   - Tetapkan masa berlaku (misalnya 1 tahun), lalu salin tokennya.
+2. **Buat akun di cron-job.org**, lalu klik *Create cronjob*:
+   - URL: `https://api.github.com/repos/AlifarikWin/dashboard-trading/actions/workflows/dashboard.yml/dispatches`
+   - Jadwal: tiap 15 menit, Senin–Jumat, pukul 06–16, zona waktu Asia/Jakarta.
+   - *Advanced:* Request method **POST**. Isi *headers*:
+     - `Authorization: Bearer <token>`
+     - `Accept: application/vnd.github+json`
+     - `X-GitHub-Api-Version: 2022-11-28`
+   - Request body: `{"ref":"main"}`
+3. Buat cronjob kedua dengan isian yang sama untuk pukul **17.45** Senin–Jumat. *Run* setelah pukul 17.00 otomatis menyertakan backtest swing.
+
+Respons sukses dari GitHub adalah **HTTP 204**.
 
 ### Menjalankan di komputer sendiri (opsional)
 ```bash

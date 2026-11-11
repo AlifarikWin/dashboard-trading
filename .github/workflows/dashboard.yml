@@ -3,12 +3,19 @@ name: perbarui-dashboard
 on:
   schedule:
     # Waktu cron GitHub memakai UTC (WIB = UTC+7). Jadwal GitHub bisa terlambat beberapa menit.
-    - cron: "30 23 * * 0-4"     # 06.30 WIB Senin–Jumat: Daftar Pagi siap sebelum bursa buka
-    - cron: "*/15 2-8 * * 1-5"  # tiap 15 menit, 09.00–15.45 WIB: harga, sinyal, status Daftar Pagi
-    - cron: "30 10 * * 1-5"     # 17.30 WIB: data penutupan BEI + backtest swing
+    # Menit sengaja dibuat tidak bulat: jadwal di menit :00/:15/:30 paling sering ditunda GitHub.
+    # Untuk jadwal yang lebih andal, picu juga dari cron-job.org (lihat README).
+    - cron: "41 23 * * 0-4"           # 06.41 WIB Senin–Jumat: Daftar Pagi siap sebelum bursa buka
+    - cron: "7,22,37,52 2-8 * * 1-5"  # tiap 15 menit, 09.07–15.52 WIB
+    - cron: "43 10 * * 1-5"           # 17.43 WIB: data penutupan + backtest swing
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      heavy:
+        description: "Sertakan backtest swing (lebih lama)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -43,7 +50,9 @@ jobs:
       - name: Hitung data dashboard
         run: |
           HEAVY=""
-          if [ "${{ github.event_name }}" != "schedule" ] || [ "${{ github.event.schedule }}" = "30 10 * * 1-5" ]; then
+          H=$(TZ=Asia/Jakarta date +%H)
+          if [ "${{ github.event_name }}" = "push" ] || [ "${{ inputs.heavy }}" = "true" ] \
+             || [ "${{ github.event.schedule }}" = "43 10 * * 1-5" ] || [ "$H" -ge 17 ]; then
             HEAVY="--heavy"
           fi
           python build.py --out site $HEAVY
