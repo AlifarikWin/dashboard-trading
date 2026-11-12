@@ -104,6 +104,11 @@ label.f{display:block;font-size:12px;color:var(--mute);margin:0 0 4px}
 .li .px{font-family:var(--mono);margin-left:auto}
 .li .chg{font-family:var(--mono);font-size:13px;min-width:58px;text-align:right}
 .li .chev{color:var(--mute)}
+.clr{position:relative;display:block}.clr input{padding-right:38px}
+.xbtn{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;border:0;background:var(--card2);color:var(--mute);font-size:16px;line-height:28px;padding:0;display:none}
+.clr.has .xbtn{display:block}
+.clr input[type=number]{-moz-appearance:textfield;appearance:textfield}
+.clr input[type=number]::-webkit-inner-spin-button,.clr input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .sugs{position:absolute;left:10px;right:10px;top:52px;z-index:30;background:var(--card2);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.45)}
 .sug{display:flex;gap:10px;align-items:center;width:100%;padding:10px 12px;background:none;border:0;border-bottom:1px solid var(--line);text-align:left;color:var(--text)}
 .sug:last-child{border-bottom:0}
@@ -226,7 +231,7 @@ th{color:var(--mute);font-weight:500;font-size:12px}
         <div><label class="f">Harga beli (jika sudah punya)</label><input id="cAvg" type="number" inputmode="numeric" placeholder="opsional"></div>
         <div><label class="f">Lot</label><input id="cLots" type="number" inputmode="numeric" placeholder="opsional"></div>
       </div>
-      <button class="btn full" id="cGo" style="margin-top:12px">Periksa</button>
+      <div class="btns"><button class="btn ghost" id="cClear">Bersihkan</button><button class="btn" id="cGo">Periksa</button></div>
     </div>
     <div id="checkOut"></div>
   </section>
@@ -327,7 +332,7 @@ function closeSheet() { $("#sheetBg").classList.add("hide"); $("#sheet").innerHT
 $("#sheetBg").onclick = e => { if (e.target.id === "sheetBg" || e.target.closest("[data-close]")) closeSheet(); };
 
 // ================= navigasi (sidebar) =================
-const TITLES = {calc: "Kalkulator Untung/Rugi", sesi: "Rekap Sesi", besok: "Kandidat Besok", movers: "Gerak Hari Ini", market: "Semua Saham", stream: "Stream Peristiwa", track: "Track Record", analysis: "Analisis Saham", today: "Hari Ini", pos: "Posisi Saya", check: "Cek Saham", jour: "Jurnal", signals: "Sinyal Watchlist",
+const TITLES = {calc: "Kalkulator", sesi: "Rekap Sesi", besok: "Kandidat Besok", movers: "Gerak Hari Ini", market: "Semua Saham", stream: "Stream Peristiwa", track: "Track Record", analysis: "Analisis Saham", today: "Hari Ini", pos: "Posisi Saya", check: "Cek Saham", jour: "Jurnal", signals: "Sinyal Watchlist",
   radar: "Radar Swing", bt: "Hasil Uji Strategi", set: "Pengaturan", guide: "Panduan Harian", help: "Fungsi Menu"};
 const SUB = {calc: () => renderCalc(), sesi: () => renderSesi(), besok: () => renderBesok(), movers: () => renderMovers(), market: () => renderMarket(), stream: () => renderStream(), track: () => renderTrack(), analysis: () => renderAnalysis(), signals: () => renderSignals(), radar: () => renderRadar(), bt: () => renderBT(), set: () => renderSettings(), guide: () => renderGuide(), help: () => renderHelp()};
 let page = "today";
@@ -634,9 +639,10 @@ function renderPositions() {
         <div><span>Stop loss</span><b class="down">${fmt(p.sl)}</b></div><div><span>Take profit</span><b class="up">${fmt(p.tp)}</b></div>
       </div>
       ${zonesHtml((priceOf(p.ticker) || {}).zones)}
-      <div class="btns"><button class="btn ghost sm" data-an="${esc(p.ticker)}">Analisis</button><button class="btn sm" data-close-pos="${i}">Sudah jual</button><button class="btn ghost sm" data-del-pos="${i}">Hapus</button></div>
+      <div class="btns"><button class="btn ghost sm" data-an="${esc(p.ticker)}">Analisis</button><button class="btn sm" data-close-pos="${i}">Sudah jual</button><button class="btn ghost sm" data-edit-pos="${i}">Ubah</button><button class="btn ghost sm" data-del-pos="${i}">Hapus</button></div>
     </div>`;
   }).join("");
+  $$("[data-edit-pos]").forEach(b => b.onclick = () => { const i = +b.dataset.editPos, p = getPos()[i]; if (p) posForm({...p, editIdx: i}); });
   $$("[data-del-pos]").forEach(b => b.onclick = () => { if (!confirm("Hapus posisi ini tanpa mencatat ke jurnal?")) return; const a = getPos(); a.splice(+b.dataset.delPos, 1); setPos(a); renderAll(); });
   $$("[data-close-pos]").forEach(b => b.onclick = () => { const i = +b.dataset.closePos, p = getPos()[i], st = posStatus(p);
     jForm({ticker: p.ticker, buy: p.avg, lots: p.lots, sell: st.price ? Math.round(st.price) : "", closeIdx: i,
@@ -666,7 +672,8 @@ function gateCheck(p) {
   return v;
 }
 function posForm(v) {
-  sheet(`<h2>${v.ticker ? "Catat posisi " + esc(v.ticker) : "Tambah posisi"}</h2>
+  const editing = v.editIdx !== undefined;
+  sheet(`<h2>${editing ? "Ubah posisi " + esc(v.ticker) : v.ticker ? "Catat posisi " + esc(v.ticker) : "Tambah posisi"}</h2>
     <div class="fgrid">
       <div class="span"><label class="f">Kode</label><input id="fT" value="${esc(v.ticker || "")}" placeholder="BBCA" autocapitalize="characters"></div>
       <div><label class="f">Harga beli (yang terisi)</label><input id="fA" type="number" inputmode="numeric" value="${v.avg ?? ""}"></div>
@@ -675,12 +682,16 @@ function posForm(v) {
       <div><label class="f">Take profit</label><input id="fP" type="number" inputmode="numeric" value="${v.tp ?? ""}"></div>
     </div>
     <div id="gate"></div>
-    <div class="btns"><button class="btn ghost" data-close>Batal</button><button class="btn" id="fSave">Simpan</button></div>`);
+    <div class="btns"><button class="btn ghost" data-close>Batal</button><button class="btn ghost" id="fClear">Kosongkan</button><button class="btn" id="fSave">${editing ? "Simpan perubahan" : "Simpan"}</button></div>`);
   const read = () => ({ticker: $("#fT").value.trim().toUpperCase(), avg: +$("#fA").value, lots: +$("#fL").value, sl: +$("#fS").value, tp: +$("#fP").value,
     src: v.src && $("#fT").value.trim().toUpperCase() === v.ticker ? v.src : undefined});
   const paint = () => {
     const p = read();
     if (!p.ticker || !p.avg || !p.lots) { $("#gate").innerHTML = ""; return []; }
+    if (editing) {  // koreksi data bukan pembelian baru: aturan sebelum beli tidak dinilai ulang
+      $("#gate").innerHTML = `<p class="muted" style="font-size:12.5px;margin:10px 0 0">Mengubah data posisi tidak dihitung sebagai transaksi baru. Catatan pelanggaran awal tetap disimpan.</p>`;
+      return [];
+    }
     const vio = gateCheck(p);
     $("#gate").innerHTML = vio.length ? `<div class="card" style="margin:12px 0 0;border-color:rgba(242,85,81,.45)">
         <b class="down">Melanggar ${vio.length} aturan</b>
@@ -690,15 +701,23 @@ function posForm(v) {
     return vio;
   };
   ["#fT", "#fA", "#fL", "#fS", "#fP"].forEach(s => $(s).addEventListener("input", paint));
+  $("#fClear").onclick = () => { ["#fT", "#fA", "#fL", "#fS", "#fP"].forEach(s => { $(s).value = ""; }); paint(); $("#fT").focus(); };
   paint();
   $("#fSave").onclick = () => {
     const p = {...read(), at: new Date().toISOString()};
     if (!p.ticker || !p.avg || !p.lots) return toast("Isi kode, harga beli, dan lot.");
     if (!(p.sl > 0 && p.sl < p.avg) || !(p.tp > p.avg)) return toast("Stop loss wajib di bawah harga beli dan take profit di atasnya.");
-    const vio = gateCheck(p);
-    if (vio.length && !($("#fForce") && $("#fForce").checked)) return toast("Centang konfirmasi jika tetap ingin mencatat.");
+    const vio = editing ? (v.violations || []) : gateCheck(p);
+    if (!editing && vio.length && !($("#fForce") && $("#fForce").checked)) return toast("Centang konfirmasi jika tetap ingin mencatat.");
     p.violations = vio;
     p.plan = v.plan && v.plan.code === p.ticker ? v.plan : null;
+    if (editing) {  // ubah posisi yang ada: waktu masuk awal dipertahankan
+      const a = getPos();
+      if (!a[v.editIdx]) return toast("Posisi tidak ditemukan; mungkin sudah dihapus.");
+      a[v.editIdx] = {...a[v.editIdx], ...p, at: a[v.editIdx].at, src: a[v.editIdx].src};
+      if (a.some((x, j) => j !== v.editIdx && x.ticker === p.ticker)) return toast(`Posisi ${p.ticker} sudah ada. Ubah posisi itu saja.`);
+      setPos(a); closeSheet(); renderAll(); go("pos"); toast("Perubahan tersimpan."); return;
+    }
     setPos([...getPos().filter(x => x.ticker !== p.ticker), p]); closeSheet(); renderAll(); go("pos");
     toast(vio.length ? "Tercatat sebagai pelanggaran aturan." : "Tersimpan. Pasang juga Auto Sell SL & TP di Stockbit.");
   };
@@ -792,28 +811,38 @@ function renderJournal() {
       ${t.plan ? `<p style="margin:10px 0 4px"><b>Rencana vs eksekusi</b> <span class="muted">(Daftar Pagi ${esc(t.plan.target || "")})</span></p>
         <ul class="checks">${compliance(t).map(c => `<li class="${c.ok ? "y" : "n"}">${esc(c.label)}</li>`).join("")}</ul>
         ${planResult(t) != null ? `<p class="muted" style="font-size:13px">Hasil jika mengikuti rencana: <b class="${cls(planResult(t))}">${pct(planResult(t))}</b></p>` : ""}` : ""}
-      <div class="btns"><button class="btn ghost" data-close>Tutup</button><button class="btn ghost" id="jDel">Hapus</button></div>`);
-    $("#jDel").onclick = () => { const a = getJ(); a.splice(i, 1); store.set("journal", a); closeSheet(); renderAll(); }; });
+      <div class="btns"><button class="btn ghost" data-close>Tutup</button><button class="btn ghost" id="jEdit">Ubah</button><button class="btn ghost" id="jDel">Hapus</button></div>`);
+    $("#jEdit").onclick = () => jForm({...t, editIdx: i});
+    $("#jDel").onclick = () => { if (!confirm(`Hapus catatan ${t.ticker} tanggal ${t.date}?`)) return;
+      const a = getJ(); a.splice(i, 1); store.set("journal", a); closeSheet(); renderAll(); toast("Catatan dihapus."); }; });
 }
 $("#addJ").onclick = () => jForm({});
 function jForm(v) {
-  sheet(`<h2>Catat transaksi</h2>
+  const editing = v.editIdx !== undefined;
+  sheet(`<h2>${editing ? "Ubah transaksi " + esc(v.ticker) : "Catat transaksi"}</h2>
     <div class="fgrid">
       <div class="span"><label class="f">Kode</label><input id="jT" value="${esc(v.ticker || "")}" autocapitalize="characters"></div>
       <div><label class="f">Harga beli</label><input id="jB" type="number" inputmode="numeric" value="${v.buy ?? ""}"></div>
       <div><label class="f">Harga jual</label><input id="jS" type="number" inputmode="numeric" value="${v.sell ?? ""}"></div>
       <div><label class="f">Lot</label><input id="jL" type="number" inputmode="numeric" value="${v.lots ?? ""}"></div>
-      <div><label class="f">Tanggal jual</label><input id="jD" type="date" value="${todayStr()}"></div>
-      <div class="span"><label class="f">Alasan masuk</label><select id="jW"><option>Daftar Pagi</option><option>Sinyal BUY</option><option>Radar</option><option>Berita</option><option>Rekomendasi orang lain</option><option>Lainnya</option></select></div>
+      <div><label class="f">Tanggal jual</label><input id="jD" type="date" value="${v.date || todayStr()}"></div>
+      <div class="span"><label class="f">Alasan masuk</label><select id="jW">${["Daftar Pagi", "BSJP", "Sinyal BUY", "Radar", "Berita", "Rekomendasi orang lain", "Lainnya"].map(x => `<option ${x === v.why ? "selected" : ""}>${x}</option>`).join("")}</select></div>
       <div class="span"><label class="f">Kondisi saat masuk (jujur saja, ini untuk Anda)</label><select id="jE">
-        ${["Sesuai rencana", "FOMO / takut ketinggalan", "Balas dendam setelah rugi", "Ragu-ragu", "Melanggar aturan"].map(x => `<option ${x === (v.violations && v.violations.length ? "Melanggar aturan" : "Sesuai rencana") ? "selected" : ""}>${x}</option>`).join("")}</select></div>
+        ${["Sesuai rencana", "FOMO / takut ketinggalan", "Balas dendam setelah rugi", "Ragu-ragu", "Melanggar aturan"].map(x => `<option ${x === (v.emo || (v.violations && v.violations.length ? "Melanggar aturan" : "Sesuai rencana")) ? "selected" : ""}>${x}</option>`).join("")}</select></div>
     </div>
-    <div class="btns"><button class="btn ghost" data-close>Batal</button><button class="btn" id="jSave">Simpan</button></div>`);
+    <div class="btns"><button class="btn ghost" data-close>Batal</button><button class="btn ghost" id="jClear">Kosongkan</button><button class="btn" id="jSave">${editing ? "Simpan perubahan" : "Simpan"}</button></div>`);
+  $("#jClear").onclick = () => { ["#jT", "#jB", "#jS", "#jL"].forEach(s => { $(s).value = ""; }); $("#jD").value = todayStr(); $("#jT").focus(); };
   $("#jSave").onclick = () => {
     const t = {ticker: $("#jT").value.trim().toUpperCase(), buy: +$("#jB").value, sell: +$("#jS").value, lots: +$("#jL").value, date: $("#jD").value,
       why: $("#jW").value, emo: $("#jE").value, openedAt: v.openedAt || null, violations: v.violations || [], plan: v.plan || null,
-      closedAt: v.closeIdx !== undefined ? new Date().toISOString() : null};
-    if (!t.ticker || !t.buy || !t.sell || !t.lots) return toast("Lengkapi semua isian.");
+      closedAt: v.closeIdx !== undefined ? new Date().toISOString() : (v.closedAt || null)};
+    if (!t.ticker || !(t.buy > 0) || !(t.sell > 0) || !(t.lots >= 1) || !t.date) return toast("Lengkapi semua isian dengan angka yang benar.");
+    if (editing) {
+      const a = getJ();
+      if (!a[v.editIdx]) return toast("Catatan tidak ditemukan; mungkin sudah dihapus.");
+      a[v.editIdx] = {...a[v.editIdx], ...t};
+      store.set("journal", a); closeSheet(); renderAll(); toast("Perubahan tersimpan."); return;
+    }
     store.set("journal", [...getJ(), t]);
     if (v.closeIdx !== undefined) { const a = getPos(); a.splice(v.closeIdx, 1); setPos(a); }
     closeSheet(); renderAll(); toast("Tercatat di jurnal.");
@@ -826,6 +855,9 @@ let cSearchOn = false;
 async function initCheckSearch() {
   if (cSearchOn) return;
   cSearchOn = true;
+  addClear($("#cTicker"), () => $("#cSug").classList.add("hide"));
+  $("#cClear").onclick = () => { ["#cTicker", "#cAvg", "#cLots"].forEach(s => { $(s).value = ""; $(s).dispatchEvent(new Event("input")); });
+    $("#checkOut").innerHTML = ""; $("#cSug").classList.add("hide"); $("#cTicker").focus(); };
   await loadUni();
   attachSearch($("#cTicker"), $("#cSug"), () => {});
 }
@@ -945,7 +977,20 @@ function renderSettings() {
     <p class="muted">Risiko 1% = jika kena stop loss, rugi ±1% modal. Semua lot dihitung dari angka ini.</p>
     <div class="card"><b>Cadangkan & pindah perangkat</b>
       <p class="muted" style="margin:6px 0 10px">Posisi, jurnal, dan pengaturan tersimpan di browser perangkat ini. Unduh cadangan untuk dipindah ke HP/laptop lain atau sebelum menghapus data browser.</p>
-      <div class="btns" style="margin-top:0"><button class="btn ghost" id="bkOut">Unduh cadangan</button><label class="btn ghost" style="text-align:center">Pulihkan<input type="file" id="bkIn" accept="application/json" class="hide"></label></div></div>`;
+      <div class="btns" style="margin-top:0"><button class="btn ghost" id="bkOut">Unduh cadangan</button><label class="btn ghost" style="text-align:center">Pulihkan<input type="file" id="bkIn" accept="application/json" class="hide"></label></div></div>
+    <div class="card"><b>Atur ulang</b>
+      <p class="muted" style="margin:6px 0 10px">Unduh cadangan dulu sebelum menghapus. Data yang dihapus tidak bisa dikembalikan tanpa file cadangan.</p>
+      <div class="btns" style="margin-top:0"><button class="btn ghost" id="rsSet">Pengaturan bawaan</button><button class="btn ghost" id="rsPos">Hapus semua posisi</button></div>
+      <div class="btns"><button class="btn ghost" id="rsJ">Hapus semua jurnal</button><button class="btn ghost" id="rsAll" style="color:var(--red)">Hapus semua data</button></div></div>`;
+  $("#rsSet").onclick = () => { if (!confirm("Kembalikan modal, risiko, dan batas ke nilai bawaan?")) return; store.set("settings", {}); renderAll(); renderSettings(); toast("Pengaturan dikembalikan ke bawaan."); };
+  $("#rsPos").onclick = () => { const n = getPos().length; if (!n) return toast("Tidak ada posisi."); if (!confirm(`Hapus ${n} posisi tanpa mencatat ke jurnal?`)) return; setPos([]); renderAll(); toast("Semua posisi dihapus."); };
+  $("#rsJ").onclick = () => { const n = getJ().length; if (!n) return toast("Jurnal kosong."); if (!confirm(`Hapus ${n} catatan jurnal?`)) return; store.set("journal", []); renderAll(); toast("Jurnal dikosongkan."); };
+  $("#rsAll").onclick = () => {
+    if (!confirm("Hapus SEMUA data di perangkat ini: posisi, jurnal, pengaturan, dan isian kalkulator?")) return;
+    if (prompt('Ketik HAPUS untuk mengonfirmasi') !== "HAPUS") return toast("Dibatalkan.");
+    ["positions", "journal", "settings", "calc", "anRecent", "mkF", "mvGood", "mvLiq", "ssGood", "ssLiq", "hideRoutine"].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+    renderAll(); renderSettings(); toast("Semua data dihapus.");
+  };
   $("#sSave").onclick = () => {
     const v = {cap: +$("#sCap").value, risk: +$("#sRisk").value, week: +$("#sWeek").value, maxPos: +$("#sMax").value, maxTrades: +$("#sMT").value, maxLoss: +$("#sML").value};
     if (!(v.cap > 0 && v.risk > 0 && v.risk <= 5 && v.week > 0 && v.maxTrades >= 1 && v.maxLoss >= 1)) return toast("Periksa isian: risiko 0–5%, angka lain harus positif.");
@@ -984,6 +1029,18 @@ function renderGuide() {
 
 
 
+// tombol × untuk mengosongkan kolom isian (muncul hanya jika kolom berisi)
+function addClear(inp, onClear) {
+  if (!inp || inp.parentElement.classList.contains("clr")) return;
+  const w = document.createElement("span"); w.className = "clr";
+  inp.parentNode.insertBefore(w, inp); w.appendChild(inp);
+  const b = document.createElement("button"); b.type = "button"; b.className = "xbtn"; b.setAttribute("aria-label", "Kosongkan"); b.textContent = "×";
+  w.appendChild(b);
+  const sync = () => w.classList.toggle("has", !!inp.value);
+  inp.addEventListener("input", sync); sync();
+  b.onclick = e => { e.preventDefault(); e.stopPropagation(); inp.value = ""; sync(); inp.dispatchEvent(new Event("input")); if (onClear) onClear(); inp.focus(); };
+}
+
 // ================= KALKULATOR UNTUNG/RUGI =================
 function renderCalc() {
   const s = settings(), c = store.get("calc", {});
@@ -995,6 +1052,7 @@ function renderCalc() {
         <div><label class="f">Fee beli / jual (%)</label><div class="row" style="gap:6px"><input id="kFB" type="number" step="0.01" min="0" value="${c.fb ?? s.feeB}"><input id="kFS" type="number" step="0.01" min="0" value="${c.fs ?? s.feeS}"></div></div>
       </div>
       <p class="muted" style="font-size:12px;margin:8px 0 0">Fee bawaan sesuai Pengaturan (Stockbit: beli 0,15%, jual 0,25% termasuk PPh 0,1%). Ubah jika broker Anda berbeda.</p>
+      <div class="btns"><button class="btn ghost" id="kClear">Kosongkan isian</button><button class="btn ghost" id="kFee">Fee bawaan</button></div>
     </div>
     <div id="kOut"></div>`;
   const ceilTick = v => { const t = tickOf(v); return Math.ceil(v / t - 1e-9) * t; };  // toleransi pembulatan desimal
@@ -1045,6 +1103,9 @@ function renderCalc() {
       <p class="muted" style="font-size:12.5px">Harga skenario dibulatkan ke fraksi harga BEI. Perhitungan tidak memasukkan batas ARA/ARB harian.</p>`;
   };
   ["#kB", "#kS", "#kL", "#kFB", "#kFS"].forEach(id => $(id).addEventListener("input", paint));
+  ["#kB", "#kS", "#kL"].forEach(id => addClear($(id)));
+  $("#kClear").onclick = () => { ["#kB", "#kS", "#kL"].forEach(id => { $(id).value = ""; $(id).dispatchEvent(new Event("input")); }); $("#kB").focus(); };
+  $("#kFee").onclick = () => { $("#kFB").value = s.feeB; $("#kFS").value = s.feeS; paint(); toast("Fee dikembalikan ke Pengaturan."); };
   paint();
 }
 
@@ -1348,6 +1409,7 @@ async function renderMarket() {
     $$("[data-mk]").forEach(b => b.onclick = () => openAnalysis(b.dataset.mk));
   };
   $("#mkQ").addEventListener("input", () => { MK.q = $("#mkQ").value; MK.n = 50; paint(); });
+  addClear($("#mkQ"));
   $("#mkSec").onchange = () => { MK.sec = $("#mkSec").value; MK.n = 50; paint(); };
   $("#mkSort").onchange = () => { MK.sort = $("#mkSort").value; paint(); };
   $("#mkRisk").onchange = () => { MK.risk = $("#mkRisk").checked; paint(); };
@@ -1393,6 +1455,9 @@ async function renderAnalysis() {
       ${recent.length ? `<div class="qchips">${recent.map(c => `<button class="fchip ${c === anTicker ? "on" : ""}" data-anq="${c}">${c}</button>`).join("")}</div>` : ""}
     </div><div id="anBody"><div class="empty">Memuat ${esc(anTicker)}…</div></div>`;
   attachSearch($("#anQ"), $("#anS"), c => { anTicker = c; renderAnalysis(); });
+  addClear($("#anQ"), () => $("#anS").classList.add("hide"));
+  if (recent.length) $(".qchips").insertAdjacentHTML("beforeend", `<button class="fchip" id="anRecentClr" title="Hapus riwayat">Hapus riwayat</button>`);
+  const rc = $("#anRecentClr"); if (rc) rc.onclick = () => { store.set("anRecent", [anTicker].filter(Boolean)); renderAnalysis(); };
   $$("[data-anq]").forEach(b => b.onclick = () => { anTicker = b.dataset.anq; renderAnalysis(); });
   let a;
   try { a = await getJSON(`data/analysis/${encodeURIComponent(anTicker)}.json`); }
