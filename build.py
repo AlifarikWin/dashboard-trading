@@ -37,6 +37,7 @@ import track
 import universe as uni
 import bsjp
 import sesi
+import lanjut
 import strategy as st
 from data import WIB
 
@@ -286,6 +287,21 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
                     bstats["s2"] = s2r
                     if s2r.get("adopt"):
                         bstats["status"], bstats["status_note"] = "layak", "dengan syarat naik di sesi 2"
+                    # uji "lanjut di sesi 2" (bar 60 menit saham likuid), diperbarui seminggu sekali
+                    lfile = store / "lanjut_test.json"
+                    lt = _read_json(lfile, {})
+                    if demo:
+                        lt = {"status": "data_kurang", "up": {"n": 12, "up_pct": 58.3, "avg_s2": 0.6, "win_pct": 50.0, "avg_net": 0.2,
+                                                              "median_net": 0.1, "worst": -2.1}, "up_recent": {"n": 4}, "down": {"n": 9, "down_pct": 66.7, "avg_s2": -0.8},
+                              "baseline": {"n": 5000, "avg_s2": 0.05, "up_pct": 45.0}, "demo": True}
+                        lfile.write_text(json.dumps(lt), encoding="utf-8")
+                    elif heavy and (not lt.get("fetched_at") or (now - datetime.fromisoformat(lt["fetched_at"])).days >= 7):
+                        try:
+                            liq = sorted(c for c, b in bbase.items() if (b.get("val20") or 0) >= lanjut.P["min_value"])
+                            lt = {**lanjut.test(ufr, lanjut.hourly_s1(liq), fee), "fetched_at": now.isoformat(timespec="minutes")}
+                            lfile.write_text(json.dumps(uni._clean(lt)), encoding="utf-8")
+                        except Exception:
+                            traceback.print_exc()
                     fdate = last_close or today
                     s1snap = sesi.load_s1(store, fdate) or {}
                     bfinal = bsjp.candidates_daily(ufr, {c: v.get("name") for c, v in listing.items()}, ublk,
@@ -606,6 +622,22 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
                     snap = {"time": "12:00", "final": True, "ihsg": ih and {"p": ih["prev"] * 1.002, "prev": ih["prev"]},
                             "q": {c: [q["o"], q.get("vol"), q["prev"]] for c, q in qs.items() if q.get("o")}}
                 if snap:
+                    # kandidat lanjut di sesi 2 dari kondisi akhir sesi 1
+                    bjx = _read_json(all_dir / "bsjp.json", {})
+                    ltest = _read_json(store / "lanjut_test.json", {})
+                    if demo and snap.get("q") and len(next(iter(snap["q"].values()))) < 5:
+                        snap["q"] = {c: [*a[:3], qs[c]["h"], qs[c]["l"]] for c, a in snap["q"].items() if c in qs}
+                    lc = lanjut.candidates(snap, bjx.get("base") or {}, {r["c"]: r["n"] for r in uindex["rows"]},
+                                           {r["c"] for r in uindex["rows"] if r.get("blk")})
+                    after_s2 = (not same) or hm >= s2start
+                    if after_s2:
+                        lc = lanjut.monitor(lc, {x["c"]: x["p"] for x in mv["items"]})
+                    if not demo and snap.get("final") and same:
+                        lanjut.save_track(store, sdate, lc, ltest.get("status"))
+                    if not demo and ((same and mstatus == "tutup" and hm >= 16 * 60 + 10) or not same):
+                        lanjut.close_track(store, sdate, {x["c"]: x["p"] for x in mv["items"]}, fee)
+                    rs["lanjut"] = {"cand": lc, "after_s2": after_s2, "stats": {k: v for k, v in ltest.items() if k != "params"},
+                                    "track": lanjut.track_summary(store)}
                     rs["s1"] = sesi.recap_s1(sesi.items_at_s1(mv["items"], snap), snap.get("ihsg"),
                                              picks if same else [], "selesai" if snap.get("final") else "sementara", snap["time"])
                     if not same or hm >= s2start:
@@ -698,6 +730,13 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
                 tp = sesi.top(S1["items"], "ch")
                 if tp:
                     lines.append("Naik terkuat (tren bagus, likuid): " + ", ".join(f"{x['c']} {fmtp(x['ch'])}" for x in tp) + ".")
+                LC = (rs.get("lanjut") or {}).get("cand") or {}
+                lst = ((rs.get("lanjut") or {}).get("stats") or {}).get("status")
+                if LC.get("up"):
+                    lines.append("Kandidat lanjut naik sesi 2: " + ", ".join(x["c"] for x in LC["up"])
+                                 + ("." if lst == "layak" else " (pola belum terbukti — pantau saja)."))
+                if LC.get("down"):
+                    lines.append("Rawan lanjut turun: " + ", ".join(x["c"] for x in LC["down"]) + ".")
                 once(f"s1-{today}", f"Rekap sesi 1 {now:%d/%m}", "\n".join(lines), tags="bar_chart", click=url + "#sesi")
             if S2 and S2["status"] == "selesai" and rs["date"] == str(today) and hm >= 16 * 60 + 12:
                 up2, dn2 = sesi.top(S2["items"], "s2"), sesi.top(S2["items"], "s2", up=False)
@@ -823,7 +862,10 @@ def main() -> None:
                               json.loads((out / "data" / "bsjp.json").read_text(encoding="utf-8"))),
                           "sesi": (lambda r: {"date": r.get("date"), "market": r.get("market"),
                                               "s1": r["s1"] and {k: r["s1"][k] for k in ("status", "time", "ihsg", "breadth", "picks")} | {"sectors": r["s1"]["sectors"][:2]},
-                                              "s2": r["s2"] and {k: r["s2"][k] for k in ("status", "time", "ihsg", "breadth")}})(
+                                              "s2": r["s2"] and {k: r["s2"][k] for k in ("status", "time", "ihsg", "breadth")},
+                                              "lanjut": r.get("lanjut") and {"stats": {k: r["lanjut"]["stats"].get(k) for k in ("status", "up", "up_recent", "down", "baseline", "stocks")},
+                                                                             "up": [x["c"] for x in r["lanjut"]["cand"]["up"]],
+                                                                             "down": [x["c"] for x in r["lanjut"]["cand"]["down"]]}})(
                               json.loads((out / "data" / "sesi.json").read_text(encoding="utf-8"))),
                           "movers": (lambda m: {"items": len(m["items"]), "session": m.get("session"), "delay_min": m.get("delay_min"),
                                                 "top": [(x["c"], x["ch"]) for x in m["items"][:3]]})(

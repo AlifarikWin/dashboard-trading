@@ -34,7 +34,7 @@ def save_s1(store: Path, d: date, now: datetime, quotes: dict[str, dict], ihsg: 
         if old.get("final"):
             return old
     snap = {"date": str(d), "time": now.strftime("%H:%M"), "final": final, "ihsg": ihsg,
-            "q": {c: [q["p"], q.get("vol"), q.get("prev")] for c, q in quotes.items() if q.get("p")}}
+            "q": {c: [q["p"], q.get("vol"), q.get("prev"), q.get("h"), q.get("l")] for c, q in quotes.items() if q.get("p")}}
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text(json.dumps(snap, separators=(",", ":")))
     for old in sorted(f.parent.glob("*.json"))[:-15]:  # simpan 15 hari bursa terakhir

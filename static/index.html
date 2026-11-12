@@ -1114,9 +1114,34 @@ let SS = {tab: null, dir: "up", good: store.get("ssGood", true), liq: store.get(
 function s2TestHtml(t) {
   if (!t || !t.matched) return `<p class="muted" style="font-size:12.5px;margin:6px 0 0">Uji syarat "naik di sesi 2" untuk BSJP dijalankan seminggu sekali setelah bursa tutup (data per jam 1 tahun).</p>`;
   const P = t.pos || {}, N = t.neg || {};
-  return `<div class="trow"><div>Naik di sesi 2<div class="n">${P.n || 0} transaksi · ${P.gap_up_pct ?? "—"}% dibuka naik besok</div></div><div class="val ${cls(P.avg_net)}">${P.n ? pct(P.avg_net) : "—"}</div></div>
-    <div class="trow"><div>Turun/datar di sesi 2<div class="n">${N.n || 0} transaksi · ${N.gap_up_pct ?? "—"}% dibuka naik besok</div></div><div class="val ${cls(N.avg_net)}">${N.n ? pct(N.avg_net) : "—"}</div></div>
+  return `<div class="trow"><div>Naik di sesi 2<div class="n">${P.n || 0} transaksi · ${P.gap_up_pct != null ? fmt1(P.gap_up_pct) : "—"}% dibuka naik besok</div></div><div class="val ${cls(P.avg_net)}">${P.n ? pct(P.avg_net) : "—"}</div></div>
+    <div class="trow"><div>Turun/datar di sesi 2<div class="n">${N.n || 0} transaksi · ${N.gap_up_pct != null ? fmt1(N.gap_up_pct) : "—"}% dibuka naik besok</div></div><div class="val ${cls(N.avg_net)}">${N.n ? pct(N.avg_net) : "—"}</div></div>
     <p class="${t.adopt ? "up" : "muted"}" style="font-size:13px;margin:8px 0 0">${t.adopt ? "Terbukti: syarat \"naik di sesi 2\" dipakai dalam seleksi BSJP." : "Belum terbukti cukup kuat, jadi belum dipakai sebagai syarat BSJP."} Setelah fee, per transaksi.</p>`;
+}
+function lanjutHtml(L, tab) {
+  if (!L || !L.cand) return "";
+  const st = L.stats || {}, U = st.up || {}, R = st.up_recent || {}, D = st.down || {}, T = L.track || {};
+  const S = {layak: ["TERBUKTI", "up"], tidak_layak: ["BELUM TERBUKTI", "down"], data_kurang: ["DATA KURANG", "amber"]}[st.status] || ["BELUM DIUJI", "muted"];
+  const row = (x, dir) => `<button class="li" data-mk="${x.c}"><span class="code">${x.c}</span>
+      <span class="grow mkn"><span class="nm">${esc(x.n)}</span><span class="tags"><span class="tag t-gray">sesi 1 ${pct(x.ret, 1)}</span>
+        <span class="tag t-gray">tutup di ${Math.round(x.pos * 100)}% rentang</span><span class="tag t-blue">vol ${fmt1(x.vr)}×</span></span></span>
+      <span class="px">${fmt(x.p1)}</span>${L.after_s2 && x.s2 != null ? `<span class="chg ${cls(x.s2)}">${pct(x.s2)}</span>` : ""}</button>`;
+  const C = L.cand;
+  return `<div class="h">${tab === "s1" ? "Lanjut di sesi 2?" : "Hasil kandidat dari akhir sesi 1"}</div>
+    <div class="card" style="padding:10px 14px"><div class="row"><b class="grow">Pola uji 1 tahun</b><span class="${S[1]}" style="font-weight:700;font-size:13px">${S[0]}</span></div>
+      <p class="muted" style="font-size:12.5px;margin:6px 0 0">${tab === "s1" ? "Dipilih dari kondisi akhir sesi 1: naik ≥ 2%, ditutup dekat harga tertinggi sesi 1, volume sesi 1 besar, tren harian naik (kebalikannya untuk rawan turun)." : "Angka di kanan = perubahan dari harga akhir sesi 1 sampai sekarang/penutupan."}
+        ${st.status === "layak" ? "" : " Belum terbukti menguntungkan setelah fee: pantau saja, jangan pakai uang sungguhan."}</p></div>
+    <p class="muted" style="font-size:13px;margin:4px 2px 6px"><b class="up">Berpeluang lanjut naik</b></p>
+    ${C.up.length ? `<div class="list">${C.up.map(x => row(x, "up")).join("")}</div>` : `<div class="card muted" style="font-size:13px">Tidak ada saham yang memenuhi syarat.</div>`}
+    <p class="muted" style="font-size:13px;margin:10px 2px 6px"><b class="down">Rawan lanjut turun</b></p>
+    ${C.down.length ? `<div class="list">${C.down.map(x => row(x, "down")).join("")}</div>` : `<div class="card muted" style="font-size:13px">Tidak ada saham yang memenuhi syarat.</div>`}
+    <div class="card" style="padding:4px 14px">
+      <div class="trow"><div>Uji 1 tahun: lanjut naik<div class="n">${U.n || 0} transaksi · ${U.up_pct != null ? fmt1(U.up_pct) : "—"}% naik di sesi 2 · beli akhir sesi 1, jual penutupan</div></div><div class="val ${cls(U.avg_net)}">${U.n ? pct(U.avg_net) : "—"}</div></div>
+      <div class="trow"><div>60 hari bursa terakhir<div class="n">${R.n || 0} transaksi</div></div><div class="val ${cls(R.avg_net)}">${R.n ? pct(R.avg_net) : "—"}</div></div>
+      <div class="trow"><div>Uji 1 tahun: rawan turun<div class="n">${D.n || 0} kejadian, ${D.down_pct != null ? fmt1(D.down_pct) : "—"}% benar turun di sesi 2</div></div><div class="val ${cls(D.avg_s2)}">${D.n ? pct(D.avg_s2) : "—"}</div></div>
+      <div class="trow"><div>Pembanding: semua saham likuid<div class="n">rata-rata sesi 2, sebelum fee</div></div><div class="val">${st.baseline && st.baseline.avg_s2 != null ? pct(st.baseline.avg_s2) : "—"}</div></div>
+      <div class="trow"><div>Track record nyata${ti("track")}<div class="n">${T.up && T.up.trades ? `${T.up.trades} transaksi sejak ${esc(T.first_date)}` : "mulai mengumpulkan data"}</div></div><div class="val ${cls(T.up && T.up.avg_net)}">${T.up && T.up.trades ? pct(T.up.avg_net) + "/transaksi" : "—"}</div></div>
+      <div class="n" style="padding:8px 0;font-size:12px">Setelah fee ${fmt1(st.fee_pct || 0.4, 2)}%. Pola diuji ulang seminggu sekali.</div></div>`;
 }
 async function renderSesi() {
   const body = $("#subBody");
@@ -1142,7 +1167,8 @@ async function renderSesi() {
       <div class="kpi"><span>Saham naik · turun</span><b style="white-space:nowrap"><i class="up" style="font-style:normal">${S.breadth.up}↑</i> · <i class="down" style="font-style:normal">${S.breadth.down}↓</i></b></div></div>
     ${tab === "s1" && S.picks && Object.keys(S.picks).length ? `<div class="card" style="padding:10px 14px"><b>Daftar Pagi (status terkini)</b>
       <div class="reasons" style="margin-top:6px">${Object.entries(S.picks).map(([k, v]) => `<span class="tag ${/TP/.test(k) ? "t-green" : /SL/.test(k) ? "t-red" : /berjalan/.test(k) ? "t-blue" : "t-gray"}">${v} ${esc(k)}</span>`).join("")}</div></div>` : ""}
-    ${sec.length ? `<div class="card" style="padding:4px 14px"><div class="trow" style="border:0"><b>Sektor</b><span class="muted" style="font-size:12px">median, saham likuid</span></div>
+    ${lanjutHtml(R.lanjut, tab)}
+    ${sec.length ? `<div class="h">Sektor <span class="muted" style="text-transform:none;font-weight:400">· median saham likuid</span></div><div class="card" style="padding:4px 14px">
       ${[...sec.slice(0, 3), ...(sec.length > 6 ? sec.slice(-3) : sec.slice(3))].map(r => `<div class="trow"><div>${esc(r.s)}<div class="n">${r.up} naik · ${r.down} turun</div></div><div class="val ${cls(r.med)}">${pct(r.med)}</div></div>`).join("")}</div>` : ""}
     <div class="seg" style="margin-top:4px">${[["up", tab === "s1" ? "Naik" : "Menguat"], ["down", tab === "s1" ? "Turun" : "Tergerus"]].map(([k, l]) => `<button data-ssd="${k}" class="${SS.dir === k ? "on" : ""}">${l}</button>`).join("")}</div>
     <div class="fchips"><button class="fchip ${SS.good ? "on" : ""}" data-ssf="good">Tren harian bagus saja</button><button class="fchip ${SS.liq ? "on" : ""}" data-ssf="liq">Likuid ≥ Rp10 M/hari</button></div>
@@ -1163,6 +1189,7 @@ async function renderSesi() {
     const mb = $("#ssMore"); if (mb) mb.onclick = () => { SS.n += 30; paint(); };
     $$("#ssList [data-mk]").forEach(b => b.onclick = () => openAnalysis(b.dataset.mk));
   };
+  $$("#subBody .list [data-mk]").forEach(b => b.onclick = () => openAnalysis(b.dataset.mk));
   $$("[data-sst]").forEach(b => b.onclick = () => { if (!R[b.dataset.sst]) return; SS.tab = b.dataset.sst; SS.n = 30; renderSesi(); });
   $$("[data-ssd]").forEach(b => b.onclick = () => { SS.dir = b.dataset.ssd; SS.n = 30; $$("[data-ssd]").forEach(x => x.classList.toggle("on", x === b)); paint(); });
   $$("[data-ssf]").forEach(b => b.onclick = () => { const k = b.dataset.ssf; SS[k] = !SS[k]; store.set(k === "good" ? "ssGood" : "ssLiq", SS[k]); b.classList.toggle("on", SS[k]); SS.n = 30; paint(); });
@@ -1254,8 +1281,8 @@ async function renderBesok() {
     ${list}
     ${BS_TAB === "up" ? `<div class="h">Bukti BSJP</div>
     <div class="card" style="padding:4px 14px">
-      <div class="trow"><div>Uji 1 tahun (5 teratas/hari)<div class="n">${U.n || 0} transaksi · ${U.gap_up_pct ?? "—"}% dibuka lebih tinggi</div></div><div class="val ${cls(U.avg_net)}">${U.n ? pct(U.avg_net) : "—"}</div></div>
-      <div class="trow"><div>60 hari bursa terakhir<div class="n">${R.n || 0} transaksi · menang ${R.win_pct ?? "—"}%</div></div><div class="val ${cls(R.avg_net)}">${R.n ? pct(R.avg_net) : "—"}</div></div>
+      <div class="trow"><div>Uji 1 tahun (5 teratas/hari)<div class="n">${U.n || 0} transaksi · ${U.gap_up_pct != null ? fmt1(U.gap_up_pct) : "—"}% dibuka lebih tinggi</div></div><div class="val ${cls(U.avg_net)}">${U.n ? pct(U.avg_net) : "—"}</div></div>
+      <div class="trow"><div>60 hari bursa terakhir<div class="n">${R.n || 0} transaksi · menang ${R.win_pct != null ? fmt1(R.win_pct) : "—"}%</div></div><div class="val ${cls(R.avg_net)}">${R.n ? pct(R.avg_net) : "—"}</div></div>
       <div class="trow"><div>Pembanding: semua saham likuid<div class="n">rata-rata semalam tanpa seleksi, sebelum fee</div></div><div class="val">${st.baseline && st.baseline.avg_on != null ? pct(st.baseline.avg_on) : "—"}</div></div>
       <div class="trow"><div>Kerugian terburuk 1 transaksi</div><div class="val down">${U.n ? pct(U.worst) : "—"}</div></div>
       <div class="trow"><div>Track record nyata${ti("track")}<div class="n">${TA.trades ? `${TA.trades} transaksi sejak ${esc(T.first_date)}` : "mulai mengumpulkan data"}</div></div><div class="val ${cls(TA.avg_net)}">${TA.trades ? pct(TA.avg_net) + "/transaksi" : "—"}</div></div>

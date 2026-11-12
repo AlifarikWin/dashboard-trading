@@ -20,7 +20,7 @@ def test_snapshot_final_not_overwritten(tmp_path):
     sesi.save_s1(tmp_path, date(2026, 11, 12), datetime(2026, 11, 12, 12, 20, tzinfo=WIB), {"AAA": {"p": 1060, "prev": 1000}}, None, final=True)
     sesi.save_s1(tmp_path, date(2026, 11, 12), datetime(2026, 11, 12, 13, 0, tzinfo=WIB), {"AAA": {"p": 1, "prev": 1000}}, None, final=True)
     s = sesi.load_s1(tmp_path, date(2026, 11, 12))
-    assert s["final"] and s["time"] == "12:20" and s["q"]["AAA"] == [1060, None, 1000]
+    assert s["final"] and s["time"] == "12:20" and s["q"]["AAA"] == [1060, None, 1000, None, None]
 
 
 def test_recaps():
