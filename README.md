@@ -63,6 +63,11 @@ Dua metode ditampilkan berdampingan, dengan kesimpulan metode mana yang hasil uj
 
 **Day Trade** adalah Daftar Pagi (lihat di atas). Batas transaksi harian dan rem rugi berlaku untuk gabungan kedua metode.
 
+## Rekap Sesi
+- **Sesi 1** (sampai 12.00; Jumat 11.30): IHSG sesi 1, jumlah saham naik dan turun, sektor terkuat dan terlemah (median saham likuid), status Daftar Pagi, serta saham naik/turun terbesar dengan saringan tren bagus dan likuid. Harga akhir sesi 1 disimpan sekali per hari saat bursa istirahat. Notifikasi ±12.15.
+- **Sesi 2**: perubahan dari akhir sesi 1 sampai penutupan, yaitu saham yang menguat atau tergerus menjelang tutup. Notifikasi ±16.15.
+- **Sesi 2 untuk BSJP:** seminggu sekali, bar 60 menit Yahoo selama 1 tahun dipakai untuk menguji apakah kandidat BSJP yang naik di sesi 2 (penutupan > harga akhir sesi 1) lebih baik semalamnya setelah *fee*. Syarat ini **hanya dipakai** bila kelompok "naik di sesi 2" positif dalam 1 tahun dan 60 hari terakhir (≥ 30 transaksi) serta lebih baik daripada semua kandidat. Hasil uji ditampilkan di Rekap Sesi dan Kandidat Besok.
+
 ## Menu lain
 - **Gerak Hari Ini:** saham yang naik, turun, ramai volume, atau gap naik dan bertahan sejak pembukaan, untuk seluruh emiten (harga dari *screener* Yahoo, tertunda ±10–15 menit, diperbarui tiap 15 menit). Saringan bawaan: likuid dan tren harian bagus. Saham yang sudah naik ≥ 7% ditandai "jangan kejar", dan yang menyentuh ARA/ARB ditandai.
 - **Semua Saham:** seluruh emiten yang bisa disaring (tren naik, dekat level tembus, di area beli, lebih kuat dari IHSG, volume melonjak, fundamental kuat, di bawah nilai wajar, pola dividen) dan diurutkan. Saham dengan penanda risiko disembunyikan secara bawaan.
@@ -149,7 +154,7 @@ Jadwal bawaan GitHub Actions sering terlambat atau dilewati, terutama di reposit
      - `X-GitHub-Api-Version: 2022-11-28`
    - *Request body*: `{"ref":"main","inputs":{"dari":"cron"}}`
 
-Cukup satu *cronjob*. *Workflow* sendiri yang memilih kapan benar-benar dijalankan: Senin–Jumat pukul 06.30–16.14 WIB dan 17.30–17.59 WIB (data penutupan dan uji strategi). Pemicu di luar jam itu langsung dilewati dalam beberapa detik.
+Cukup satu *cronjob*. *Workflow* sendiri yang memilih kapan benar-benar dijalankan: Senin–Jumat pukul 06.30–16.29 WIB dan 17.30–17.59 WIB (data penutupan dan uji strategi). Pemicu di luar jam itu langsung dilewati dalam beberapa detik.
 
 Respons sukses dari GitHub adalah **HTTP 204**.
 

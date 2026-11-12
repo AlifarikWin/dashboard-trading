@@ -20,7 +20,7 @@ import shutil
 import time
 import traceback
 from dataclasses import asdict
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -36,6 +36,7 @@ import risk as rk
 import track
 import universe as uni
 import bsjp
+import sesi
 import strategy as st
 from data import WIB
 
@@ -156,6 +157,8 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
     s, risk, dcfg0 = cfg["strategy"], cfg["risk"], cfg["daytrade"]
     fee = risk["fee_buy_pct"] + risk["fee_sell_pct"]
     now = datetime.now(WIB)
+    if demo and os.getenv("FAKE_NOW"):  # hanya untuk uji tampilan demo pada jam tertentu
+        now = datetime.fromisoformat(os.environ["FAKE_NOW"]).astimezone(WIB)
     today = now.date()
     mstatus, progress = st.market_state(now, cfg["session"])
     market_open = mstatus in ("buka", "istirahat")
@@ -267,8 +270,26 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
                 try:  # BSJP: uji 1 tahun, daftar final dari bar terakhir, track record
                     ublk = {r["c"] for r in _read_json(all_dir / "universe.json", {"rows": []})["rows"] if r.get("blk")}
                     bstats, bbase = bsjp.evaluate_history(ufr, fee)
+                    # uji syarat "naik di sesi 2" (bar 60 menit), diperbarui seminggu sekali
+                    s2file = store / "bsjp_s2.json"
+                    s2r = _read_json(s2file, {})
+                    if demo:
+                        s2r = {"matched": 0, "adopt": False, "demo": True}
+                    elif heavy and (not s2r.get("fetched_at") or (now - datetime.fromisoformat(s2r["fetched_at"])).days >= 7):
+                        try:
+                            cands = bsjp.top_candidates(ufr)
+                            s1c = bsjp.s1_closes(sorted(set(cands["code"])))
+                            s2r = {**bsjp.s2_test(cands, s1c, fee), "fetched_at": now.isoformat(timespec="minutes")}
+                            s2file.write_text(json.dumps(uni._clean(s2r)), encoding="utf-8")
+                        except Exception:
+                            traceback.print_exc()
+                    bstats["s2"] = s2r
+                    if s2r.get("adopt"):
+                        bstats["status"], bstats["status_note"] = "layak", "dengan syarat naik di sesi 2"
+                    fdate = last_close or today
+                    s1snap = sesi.load_s1(store, fdate) or {}
                     bfinal = bsjp.candidates_daily(ufr, {c: v.get("name") for c, v in listing.items()}, ublk,
-                                                   last_close or today)
+                                                   fdate, s1=s1snap.get("q"), s2_filter=bool(s2r.get("adopt")))
                     (all_dir / "bsjp.json").write_text(json.dumps(uni._clean({"stats": bstats, "base": bbase, "final": bfinal}),
                                                                   ensure_ascii=False), encoding="utf-8")
                     if not demo:
@@ -548,6 +569,7 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
     # gerak hari ini (harga terkini seluruh emiten): saat bursa buka, istirahat, dan setelah tutup
     mv = {"market": mstatus, "updated": None, "items": [], "delay_min": None}
     qs = {}
+    hm = now.hour * 60 + now.minute
     if uindex["rows"]:
         try:
             qs = uni.demo_quotes(uindex["rows"], int(now.timestamp() // 900)) if demo else uni.live_quotes()
@@ -561,10 +583,41 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
             errors.append(f"Gerak hari ini: {type(e).__name__}")
     write(out, "movers", mv)
 
+    # ---------- Rekap Sesi 1 & 2 ----------
+    rs = {"market": mstatus, "date": mv.get("session"), "s1": None, "s2": None, "delay_min": mv.get("delay_min")}
+    try:
+        sdate = date.fromisoformat(mv["session"]) if mv.get("session") else None
+        if sdate and mv["items"]:
+            s1end = sesi.s1_end_minute(sdate, cfg["session"])
+            s2start = int(cfg["session"]["fri" if sdate.weekday() == 4 else "mon_thu"][1][0][:2]) * 60 + \
+                int(cfg["session"]["fri" if sdate.weekday() == 4 else "mon_thu"][1][0][3:])
+            same = sdate == today
+            ih = None
+            if ihsg is not None and len(ihsg) > 1 and ihsg.index[-1].date() == sdate:
+                ih = {"p": float(ihsg["Close"].iloc[-1]), "prev": float(ihsg["Close"].iloc[-2])}
+            tstr = now.strftime("%H:%M")
+            if same and hm < s1end:
+                rs["s1"] = sesi.recap_s1(mv["items"], ih, picks, "berlangsung", tstr)
+            else:
+                if same and mstatus == "istirahat" and not demo:
+                    sesi.save_s1(store, today, now, qs, ih, final=hm >= s1end + (mv.get("delay_min") or 15) + 2)
+                snap = sesi.load_s1(store, sdate)
+                if demo and not snap:  # demo: anggap harga akhir sesi 1 = harga pembukaan
+                    snap = {"time": "12:00", "final": True, "ihsg": ih and {"p": ih["prev"] * 1.002, "prev": ih["prev"]},
+                            "q": {c: [q["o"], q.get("vol"), q["prev"]] for c, q in qs.items() if q.get("o")}}
+                if snap:
+                    rs["s1"] = sesi.recap_s1(sesi.items_at_s1(mv["items"], snap), snap.get("ihsg"),
+                                             picks if same else [], "selesai" if snap.get("final") else "sementara", snap["time"])
+                    if not same or hm >= s2start:
+                        rs["s2"] = sesi.recap_s2(mv["items"], snap, ih, "berlangsung" if same and mstatus == "buka" else "selesai", tstr)
+    except Exception as e:
+        traceback.print_exc()
+        errors.append(f"Rekap sesi: {type(e).__name__}")
+    write(out, "sesi", rs)
+
     # BSJP: daftar sementara menjelang penutupan, daftar final setelah tutup, pemantauan besok pagi
     bj = _read_json(all_dir / "bsjp.json", {})
     final = bj.get("final") or {}
-    hm = now.hour * 60 + now.minute
     live_session = mv.get("session") == str(today)
     bs = {"stats": bj.get("stats"), "final": final, "phase": "final", "provisional": None, "monitor": None,
           "market": mstatus, "updated": now.strftime("%H:%M"), "delay_min": mv.get("delay_min")}
@@ -573,7 +626,9 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
         ublk = {r["c"] for r in uindex["rows"] if r.get("blk")}
         if mstatus in ("buka", "istirahat") and hm >= 15 * 60 and qs and live_session and bj.get("base"):
             bs["phase"] = "sore"
-            bs["provisional"] = bsjp.candidates_live(qs, bj["base"], names, ublk, progress, today)
+            s2a = bool(((bj.get("stats") or {}).get("s2") or {}).get("adopt"))
+            bs["provisional"] = bsjp.candidates_live(qs, bj["base"], names, ublk, progress, today,
+                                                     s1=(sesi.load_s1(store, today) or {}).get("q"), s2_filter=s2a)
         elif final.get("date") and final["date"] < str(today) and mstatus in ("buka", "istirahat") and live_session:
             bs["phase"] = "pagi"
             bs["monitor"] = bsjp.monitor(final.get("up", []), qs)
@@ -631,6 +686,28 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
                 body = ("JANGAN TRADING: " + ", ".join(stops)) if stops else \
                     "\n".join(f"{p['code']}: beli ≥ {p['plan']['trigger']}, SL {p['plan']['sl']}, TP {p['plan']['tp']}" for p in picks)
                 once(f"pagi-{target}", f"Daftar Pagi {target}", body, tags="sunrise", click=url)
+            S1, S2 = rs.get("s1"), rs.get("s2")
+            fmtp = lambda v: "—" if v is None else f"{v:+.2f}%".replace(".", ",")
+            if S1 and S1["status"] == "selesai" and mstatus == "istirahat" and rs["date"] == str(today):
+                sec = S1["sectors"]
+                lines = [f"IHSG sesi 1 {fmtp(S1['ihsg'])}. Naik {S1['breadth']['up']} · turun {S1['breadth']['down']} saham."]
+                if sec:
+                    lines.append(f"Sektor terkuat {sec[0]['s']} ({fmtp(sec[0]['med'])}), terlemah {sec[-1]['s']} ({fmtp(sec[-1]['med'])}).")
+                if S1["picks"]:
+                    lines.append("Daftar Pagi: " + ", ".join(f"{v} {k}" for k, v in S1["picks"].items()) + ".")
+                tp = sesi.top(S1["items"], "ch")
+                if tp:
+                    lines.append("Naik terkuat (tren bagus, likuid): " + ", ".join(f"{x['c']} {fmtp(x['ch'])}" for x in tp) + ".")
+                once(f"s1-{today}", f"Rekap sesi 1 {now:%d/%m}", "\n".join(lines), tags="bar_chart", click=url + "#sesi")
+            if S2 and S2["status"] == "selesai" and rs["date"] == str(today) and hm >= 16 * 60 + 12:
+                up2, dn2 = sesi.top(S2["items"], "s2"), sesi.top(S2["items"], "s2", up=False)
+                lines = [f"IHSG sesi 2 {fmtp(S2['ihsg'])}."]
+                if up2:
+                    lines.append("Menguat di sesi 2: " + ", ".join(f"{x['c']} {fmtp(x['s2'])}" for x in up2) + ".")
+                if dn2:
+                    lines.append("Tergerus di sesi 2: " + ", ".join(f"{x['c']} {fmtp(x['s2'])}" for x in dn2) + ".")
+                lines.append("Daftar final BSJP diperbarui sekitar 17.45.")
+                once(f"s2-{today}", f"Rekap sesi 2 {now:%d/%m}", "\n".join(lines), tags="bar_chart", click=url + "#sesi")
             prov = (bs.get("provisional") or {}).get("up") or []
             if bs.get("phase") == "sore" and 15 * 60 + 25 <= hm < 15 * 60 + 58:
                 stat = (bs.get("stats") or {}).get("status")

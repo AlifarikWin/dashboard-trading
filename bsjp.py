@@ -135,9 +135,17 @@ def _plan(code: str, price: float, prev: float, d: date) -> dict:
     return {"buy_limit": limit, "risk_move_pct": P["risk_move_pct"]}
 
 
-def candidates_daily(frames: dict[str, pd.DataFrame], names: dict[str, str], blocked: set[str], d_for: date) -> dict:
-    """Daftar final dari bar harian terakhir (setelah bursa tutup)."""
+def _s2(code: str, price: float, s1: dict | None) -> float | None:
+    a = (s1 or {}).get(code)
+    return round((price / a[0] - 1) * 100, 2) if a and a[0] else None
+
+
+def candidates_daily(frames: dict[str, pd.DataFrame], names: dict[str, str], blocked: set[str], d_for: date,
+                     s1: dict | None = None, s2_filter: bool = False) -> dict:
+    """Daftar final dari bar harian terakhir (setelah bursa tutup).
+    s1 = harga akhir sesi 1 hari itu {kode: [harga, volume, prev]}; s2_filter = wajib naik di sesi 2."""
     up_l, dn_l = [], []
+    use_s2 = s2_filter and bool(s1)
     for code, df in frames.items():
         if len(df) < 60 or code in blocked:
             continue
@@ -148,7 +156,8 @@ def candidates_daily(frames: dict[str, pd.DataFrame], names: dict[str, str], blo
         row = {"c": code, "n": names.get(code, code), "price": float(r["close"]), "prev": float(r["prev"]),
                "chg": round(float(r["chg"]), 2), "cpos": round(float(r["cpos"]), 2), "vr": round(float(r["vr"]), 2),
                "brk": brk}
-        if bool(up.iloc[0]):
+        row["s2"] = _s2(code, row["price"], s1)
+        if bool(up.iloc[0]) and (not use_s2 or (row["s2"] is not None and row["s2"] > 0)):
             row["score"] = float(_score(r["cpos"], r["vr"], r["chg"], float(brk)))
             row["plan"] = _plan(code, row["price"], row["prev"], d_for)
             up_l.append(row)
@@ -158,13 +167,15 @@ def candidates_daily(frames: dict[str, pd.DataFrame], names: dict[str, str], blo
     dn_l.sort(key=lambda x: x["chg"])
     date_ = max((df.index[-1] for df in frames.values()), default=None)
     return {"date": str(date_.date()) if date_ is not None else None, "up": up_l[:P["top_n"]], "down": dn_l[:10],
-            "up_more": max(0, len(up_l) - P["top_n"])}
+            "up_more": max(0, len(up_l) - P["top_n"]), "s2_filter": use_s2,
+            "s2_missing": bool(s2_filter and not s1)}
 
 
 def candidates_live(quotes: dict[str, dict], base: dict[str, dict], names: dict[str, str], blocked: set[str],
-                    progress: float, d: date) -> dict:
+                    progress: float, d: date, s1: dict | None = None, s2_filter: bool = False) -> dict:
     """Daftar sementara dari harga intraday (tertunda) menjelang penutupan."""
     up_l = []
+    use_s2 = s2_filter and bool(s1)
     f = max(progress, 0.1)
     for code, q in quotes.items():
         b = base.get(code)
@@ -179,14 +190,90 @@ def candidates_live(quotes: dict[str, dict], base: dict[str, dict], names: dict[
         ara = _ara_pct(np.array([prev]), d)[0]
         ok = (b["val20"] >= P["min_value"] and p >= P["min_price"] and cpos >= P["cpos_up"] and vr >= P["vr"]
               and P["chg_min"] <= chg <= ara - P["ara_gap"] and p > b["ma20"] and b["ma20"] > b["ma50"])
-        if not ok:
+        s2 = _s2(code, float(p), s1)
+        if not ok or (use_s2 and (s2 is None or s2 <= 0)):
             continue
         brk = bool(b.get("hi20") and p > b["hi20"])
         up_l.append({"c": code, "n": names.get(code, code), "price": float(p), "prev": float(prev), "chg": round(chg, 2),
                      "cpos": round(cpos, 2), "vr": round(vr, 2), "brk": brk,
-                     "score": float(_score(cpos, vr, chg, float(brk))), "plan": _plan(code, float(p), float(prev), d)})
+                     "score": float(_score(cpos, vr, chg, float(brk))), "plan": _plan(code, float(p), float(prev), d), "s2": s2})
     up_l.sort(key=lambda x: (-x["score"], -x["vr"]))
-    return {"up": up_l[:P["top_n"]], "up_more": max(0, len(up_l) - P["top_n"])}
+    return {"up": up_l[:P["top_n"]], "up_more": max(0, len(up_l) - P["top_n"]), "s2_filter": use_s2,
+            "s2_missing": bool(s2_filter and not s1)}
+
+
+def top_candidates(frames: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    """Kandidat naik historis, 5 skor teratas per hari (sama seperti uji utama)."""
+    rows = []
+    for code, df in frames.items():
+        if len(df) < 60:
+            continue
+        d = features(df)
+        up, _ = conditions(d)
+        if up.any():
+            brk = (d["close"] > d["hi20"]).astype(float)
+            sc = _score(d["cpos"], d["vr"].fillna(0), d["chg"], brk)
+            rows.append(pd.DataFrame({"date": d.index[up], "code": code, "score": sc[up].values,
+                                      "on": d["on"][up].values, "close": d["close"][up].values}))
+    if not rows:
+        return pd.DataFrame(columns=["date", "code", "score", "on", "close"])
+    u = pd.concat(rows)
+    return u.sort_values(["date", "score"], ascending=[True, False]).groupby("date").head(P["top_n"]).reset_index(drop=True)
+
+
+def s1_closes(codes: list[str], period: str = "1y", chunk: int = 80) -> dict[str, pd.Series]:
+    """Harga akhir sesi 1 per hari dari bar 60 menit Yahoo (bar yang dimulai sebelum 12.00 WIB)."""
+    import time
+    import traceback
+    import yfinance as yf
+    out = {}
+    for i in range(0, len(codes), chunk):
+        part = codes[i:i + chunk]
+        syms = [f"{c}.JK" for c in part]
+        try:
+            d = yf.download(syms, period=period, interval="60m", group_by="ticker", auto_adjust=False,
+                            threads=True, progress=False)
+        except Exception:
+            traceback.print_exc()
+            continue
+        for c, sym in zip(part, syms):
+            try:
+                x = d[sym] if isinstance(d.columns, pd.MultiIndex) else d
+                x = x.dropna(subset=["Close"])
+                if x.empty:
+                    continue
+                idx = x.index.tz_convert("Asia/Jakarta") if x.index.tz is not None else x.index.tz_localize("Asia/Jakarta")
+                x = x.set_axis(idx)
+                x = x[x.index.hour < 12]
+                out[c] = x["Close"].groupby(x.index.tz_localize(None).normalize()).last()
+            except Exception:
+                continue
+        time.sleep(1)
+    return out
+
+
+def s2_test(cands: pd.DataFrame, s1c: dict[str, pd.Series], fee: float) -> dict:
+    """Apakah kandidat BSJP yang NAIK di sesi 2 (close > harga akhir sesi 1) lebih baik semalamnya?"""
+    if cands.empty:
+        return {"matched": 0, "adopt": False}
+    s2 = []
+    for r in cands.itertuples():
+        ser = s1c.get(r.code)
+        v = ser.get(pd.Timestamp(r.date).normalize()) if ser is not None else None
+        s2.append((r.close / v - 1) * 100 if v and v > 0 else np.nan)
+    c = cands.assign(s2=s2).dropna(subset=["s2", "on"])
+    if c.empty:
+        return {"matched": 0, "adopt": False}
+    dates = sorted(c["date"].unique())
+    recent_from = dates[-P["recent_days"]] if len(dates) > P["recent_days"] else dates[0]
+    pos, neg = c[c["s2"] > 0], c[c["s2"] <= 0]
+    res = {"matched": int(len(c)), "of": int(len(cands.dropna(subset=["on"]))), "all": _stats(c["on"], fee),
+           "pos": _stats(pos["on"], fee), "neg": _stats(neg["on"], fee), "strong": _stats(c.loc[c["s2"] >= 1, "on"], fee),
+           "pos_recent": _stats(pos.loc[pos["date"] >= recent_from, "on"], fee)}
+    p, pr, a = res["pos"], res["pos_recent"], res["all"]
+    res["adopt"] = bool(p.get("n", 0) >= P["min_trades"] and p["avg_net"] > 0 and pr.get("n", 0) >= 10
+                        and pr["avg_net"] > 0 and p["avg_net"] > a.get("avg_net", -99))
+    return res
 
 
 def monitor(picks: list[dict], quotes: dict[str, dict]) -> list[dict]:
