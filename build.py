@@ -731,12 +731,15 @@ def build_all(out: Path, heavy: bool = False, demo: bool = False, cfg: dict | No
                 if tp:
                     lines.append("Naik terkuat (tren bagus, likuid): " + ", ".join(f"{x['c']} {fmtp(x['ch'])}" for x in tp) + ".")
                 LC = (rs.get("lanjut") or {}).get("cand") or {}
-                lst = ((rs.get("lanjut") or {}).get("stats") or {}).get("status")
+                LS = (rs.get("lanjut") or {}).get("stats") or {}
+                lst, LD = LS.get("status"), LS.get("down") or {}
                 if LC.get("up"):
                     lines.append("Kandidat lanjut naik sesi 2: " + ", ".join(x["c"] for x in LC["up"])
                                  + ("." if lst == "layak" else " (pola belum terbukti — pantau saja)."))
                 if LC.get("down"):
-                    lines.append("Rawan lanjut turun: " + ", ".join(x["c"] for x in LC["down"]) + ".")
+                    rebound = LD.get("n", 0) >= 30 and (LD.get("down_pct") or 100) < 50
+                    lines.append(("Turun tajam di sesi 1 (data: lebih sering memantul di sesi 2): " if rebound else "Rawan lanjut turun: ")
+                                 + ", ".join(x["c"] for x in LC["down"]) + ".")
                 once(f"s1-{today}", f"Rekap sesi 1 {now:%d/%m}", "\n".join(lines), tags="bar_chart", click=url + "#sesi")
             if S2 and S2["status"] == "selesai" and rs["date"] == str(today) and hm >= 16 * 60 + 12:
                 up2, dn2 = sesi.top(S2["items"], "s2"), sesi.top(S2["items"], "s2", up=False)

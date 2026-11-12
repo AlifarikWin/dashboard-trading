@@ -1131,9 +1131,9 @@ function lanjutHtml(L, tab) {
     <div class="card" style="padding:10px 14px"><div class="row"><b class="grow">Pola uji 1 tahun</b><span class="${S[1]}" style="font-weight:700;font-size:13px">${S[0]}</span></div>
       <p class="muted" style="font-size:12.5px;margin:6px 0 0">${tab === "s1" ? "Dipilih dari kondisi akhir sesi 1: naik ≥ 2%, ditutup dekat harga tertinggi sesi 1, volume sesi 1 besar, tren harian naik (kebalikannya untuk rawan turun)." : "Angka di kanan = perubahan dari harga akhir sesi 1 sampai sekarang/penutupan."}
         ${st.status === "layak" ? "" : " Belum terbukti menguntungkan setelah fee: pantau saja, jangan pakai uang sungguhan."}</p></div>
-    <p class="muted" style="font-size:13px;margin:4px 2px 6px"><b class="up">Berpeluang lanjut naik</b></p>
+    <p class="muted" style="font-size:13px;margin:4px 2px 6px">${U.n >= 30 && U.up_pct < 50 ? `<b>Naik kuat di sesi 1</b> · data 1 tahun: hanya ${fmt1(U.up_pct)}% yang lanjut naik di sesi 2` : `<b class="up">Berpeluang lanjut naik</b>`}</p>
     ${C.up.length ? `<div class="list">${C.up.map(x => row(x, "up")).join("")}</div>` : `<div class="card muted" style="font-size:13px">Tidak ada saham yang memenuhi syarat.</div>`}
-    <p class="muted" style="font-size:13px;margin:10px 2px 6px"><b class="down">Rawan lanjut turun</b></p>
+    <p class="muted" style="font-size:13px;margin:10px 2px 6px">${D.n >= 30 && D.down_pct < 50 ? `<b>Turun tajam di sesi 1</b> · data 1 tahun: lebih sering memantul di sesi 2 (rata-rata ${pct(D.avg_s2)}), hanya ${fmt1(D.down_pct)}% yang lanjut turun` : `<b class="down">Rawan lanjut turun</b>`}</p>
     ${C.down.length ? `<div class="list">${C.down.map(x => row(x, "down")).join("")}</div>` : `<div class="card muted" style="font-size:13px">Tidak ada saham yang memenuhi syarat.</div>`}
     <div class="card" style="padding:4px 14px">
       <div class="trow"><div>Uji 1 tahun: lanjut naik<div class="n">${U.n || 0} transaksi · ${U.up_pct != null ? fmt1(U.up_pct) : "—"}% naik di sesi 2 · beli akhir sesi 1, jual penutupan</div></div><div class="val ${cls(U.avg_net)}">${U.n ? pct(U.avg_net) : "—"}</div></div>
