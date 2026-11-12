@@ -817,8 +817,14 @@ def main() -> None:
                                               "up": (b.get("stats") or {}).get("up"), "recent": (b.get("stats") or {}).get("up_recent"),
                                               "baseline": (b.get("stats") or {}).get("baseline"), "down": (b.get("stats") or {}).get("down"),
                                               "final": [(x["c"], x["chg"]) for x in (b.get("final") or {}).get("up", [])],
-                                              "final_date": (b.get("final") or {}).get("date")})(
+                                              "final_date": (b.get("final") or {}).get("date"),
+                                              "s2_test": {k: v for k, v in ((b.get("stats") or {}).get("s2") or {}).items()
+                                                          if k in ("matched", "of", "all", "pos", "neg", "strong", "pos_recent", "adopt")}})(
                               json.loads((out / "data" / "bsjp.json").read_text(encoding="utf-8"))),
+                          "sesi": (lambda r: {"date": r.get("date"), "market": r.get("market"),
+                                              "s1": r["s1"] and {k: r["s1"][k] for k in ("status", "time", "ihsg", "breadth", "picks")} | {"sectors": r["s1"]["sectors"][:2]},
+                                              "s2": r["s2"] and {k: r["s2"][k] for k in ("status", "time", "ihsg", "breadth")}})(
+                              json.loads((out / "data" / "sesi.json").read_text(encoding="utf-8"))),
                           "movers": (lambda m: {"items": len(m["items"]), "session": m.get("session"), "delay_min": m.get("delay_min"),
                                                 "top": [(x["c"], x["ch"]) for x in m["items"][:3]]})(
                               json.loads((out / "data" / "movers.json").read_text(encoding="utf-8"))), "sectors": len({r["s"] for r in rows if r["s"]}),
