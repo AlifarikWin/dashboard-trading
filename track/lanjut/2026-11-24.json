@@ -1,1 +1,1 @@
-{"date": "2026-11-24", "status": "tidak_layak", "saved_at": "2026-11-24T05:16", "up": [], "down": [{"c": "BRPT", "p1": 680.0}, {"c": "INDY", "p1": 1525.0}]}
+{"date": "2026-11-24", "status": "tidak_layak", "saved_at": "2026-11-24T05:16", "up": [], "down": [{"c": "BRPT", "p1": 680.0, "s2": 0.0}, {"c": "INDY", "p1": 1525.0, "s2": 0.33}], "closed": true}
